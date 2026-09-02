@@ -1,0 +1,181 @@
+--- app/src/main/java/com/example/data/MockDataManager.kt
++++ app/src/main/java/com/example/data/MockDataManager.kt
+@@ -10,6 +10,10 @@
+ import com.example.data.models.Complaint
+ import com.example.data.models.ComplaintStatus
+ import com.example.data.models.Notification
++import com.example.data.models.Studio
++import com.example.data.models.StudioPackage
++import com.example.data.models.Location
++import com.example.data.models.PortfolioItem
+ import com.google.gson.Gson
+ import com.google.gson.reflect.TypeToken
+ import kotlinx.coroutines.flow.MutableStateFlow
+@@ -34,6 +38,15 @@
+     private val _complaints = MutableStateFlow<List<Complaint>>(emptyList())
+     val complaints: StateFlow<List<Complaint>> = _complaints.asStateFlow()
+ 
++    private val _studios = MutableStateFlow<List<Studio>>(emptyList())
++    val studios: StateFlow<List<Studio>> = _studios.asStateFlow()
++
++    private val _packages = MutableStateFlow<List<StudioPackage>>(emptyList())
++    val packages: StateFlow<List<StudioPackage>> = _packages.asStateFlow()
++
++    private val _portfolios = MutableStateFlow<List<PortfolioItem>>(emptyList())
++    val portfolios: StateFlow<List<PortfolioItem>> = _portfolios.asStateFlow()
++
+     fun init(context: Context) {
+         if (prefs == null) {
+             prefs = context.getSharedPreferences("app_data", Context.MODE_PRIVATE)
+@@ -69,6 +82,57 @@
+             _bookings.value = mockBookings
+             saveData()
+         }
++        
++        val studiosJson = p.getString("studios", null)
++        if (studiosJson != null) {
++            val type = object : TypeToken<List<Studio>>() {}.type
++            _studios.value = gson.fromJson(studiosJson, type)
++        } else {
++            _studios.value = listOf(
++                Studio(
++                    id = "1",
++                    name = "Prayagraj Moments",
++                    isVerified = true,
++                    rating = 4.8f,
++                    reviewCount = 124,
++                    startingPackagePrice = 45000.0,
++                    completedBookings = 200,
++                    location = Location(address = "Civil Lines, Prayagraj"),
++                    servicesOffered = listOf("Wedding Photography", "Cinematic Film", "Pre-Wedding")
++                ),
++                Studio(
++                    id = "2",
++                    name = "Cinematic Wedz",
++                    isVerified = true,
++                    rating = 4.9f,
++                    reviewCount = 89,
++                    startingPackagePrice = 65000.0,
++                    completedBookings = 150,
++                    location = Location(address = "MG Marg, Prayagraj"),
++                    servicesOffered = listOf("Cinematic", "Wedding Videography", "Drone", "Photography")
++                )
++            )
++            saveData()
++        }
++        
++        val packagesJson = p.getString("packages", null)
++        if (packagesJson != null) {
++            val type = object : TypeToken<List<StudioPackage>>() {}.type
++            _packages.value = gson.fromJson(packagesJson, type)
++        } else {
++            _packages.value = listOf(
++                StudioPackage(
++                    id = "pkg_1",
++                    studioId = "1",
++                    name = "Essential Coverage",
++                    price = 45000.0,
++                    description = "Perfect for single day intimate weddings",
++                    includesPhotography = true,
++                    includesVideography = true,
++                    maxFunctions = 1,
++                    deliveryTimelineDays = 30
++                )
++            )
++            saveData()
++        }
++
++        val portfoliosJson = p.getString("portfolios", null)
++        if (portfoliosJson != null) {
++            val type = object : TypeToken<List<PortfolioItem>>() {}.type
++            _portfolios.value = gson.fromJson(portfoliosJson, type)
++        }
+ 
+         val reviewsJson = p.getString("reviews", null)
+         if (reviewsJson != null) {
+@@ -107,6 +171,9 @@
+         p.putString("reviews", gson.toJson(_reviews.value))
+         p.putString("notifications", gson.toJson(_notifications.value))
+         p.putString("complaints", gson.toJson(_complaints.value))
++        p.putString("studios", gson.toJson(_studios.value))
++        p.putString("packages", gson.toJson(_packages.value))
++        p.putString("portfolios", gson.toJson(_portfolios.value))
+         p.apply()
+     }
+ 
+@@ -176,4 +243,59 @@
+         return _reviews.value.any { it.bookingId == bookingId }
+     }
++
++    fun getStudioByOwnerId(ownerId: String): Studio? {
++        return _studios.value.find { it.ownerId == ownerId }
++    }
++
++    fun getStudioById(studioId: String): Studio? {
++        return _studios.value.find { it.id == studioId }
++    }
++
++    fun saveStudio(studio: Studio) {
++        val current = _studios.value.toMutableList()
++        val index = current.indexOfFirst { it.id == studio.id }
++        if (index >= 0) {
++            current[index] = studio
++        } else {
++            current.add(studio)
++        }
++        _studios.value = current
++        saveData()
++    }
++    
++    fun getPackagesForStudio(studioId: String): List<StudioPackage> {
++        return _packages.value.filter { it.studioId == studioId }
++    }
++    
++    fun savePackage(pkg: StudioPackage) {
++        val current = _packages.value.toMutableList()
++        val index = current.indexOfFirst { it.id == pkg.id }
++        if (index >= 0) {
++            current[index] = pkg
++        } else {
++            current.add(pkg)
++        }
++        _packages.value = current
++        saveData()
++    }
++    
++    fun deletePackage(packageId: String) {
++        _packages.value = _packages.value.filterNot { it.id == packageId }
++        saveData()
++    }
++
++    fun getPortfolioForStudio(studioId: String): List<PortfolioItem> {
++        return _portfolios.value.filter { it.studioId == studioId }
++    }
++
++    fun savePortfolioItem(item: PortfolioItem) {
++        val current = _portfolios.value.toMutableList()
++        val index = current.indexOfFirst { it.id == item.id }
++        if (index >= 0) {
++            current[index] = item
++        } else {
++            current.add(item)
++        }
++        _portfolios.value = current
++        saveData()
++    }
++
++    fun deletePortfolioItem(itemId: String) {
++        _portfolios.value = _portfolios.value.filterNot { it.id == itemId }
++        saveData()
++    }
++    
++    fun updateBookingStatus(bookingId: String, status: BookingStatus) {
++        val current = _bookings.value.toMutableList()
++        val index = current.indexOfFirst { it.id == bookingId }
++        if (index >= 0) {
++            current[index] = current[index].copy(status = status)
++            _bookings.value = current
++            saveData()
++        }
++    }
+ }

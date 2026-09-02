@@ -1,0 +1,51 @@
+--- app/src/main/java/com/example/data/AuthManager.kt
++++ app/src/main/java/com/example/data/AuthManager.kt
+@@ -19,7 +19,7 @@
+         return bytes.joinToString("") { "%02x".format(it) }
+     }
+ 
+-    fun register(mobile: String, email: String, password: String): AuthResult {
++    fun register(mobile: String, email: String, password: String, role: String = "CLIENT"): AuthResult {
+         val p = prefs ?: return AuthResult.ACCOUNT_NOT_FOUND
+         
+         if (p.contains("user_$mobile") || (email.isNotBlank() && p.contains("user_$email"))) {
+@@ -31,9 +31,11 @@
+         p.edit().apply {
+             putString("user_$mobile", hashedPassword)
++            putString("role_$mobile", role)
+             if (email.isNotBlank()) {
+                 putString("user_$email", hashedPassword)
++                putString("role_$email", role)
+             }
+         }.apply()
+         
+@@ -85,14 +87,17 @@
+             name = p.getString("profile_${emailOrMobile}_name", "User") ?: "User",
+             email = p.getString("profile_${emailOrMobile}_email", "") ?: "",
+             mobile = p.getString("profile_${emailOrMobile}_mobile", emailOrMobile) ?: emailOrMobile,
+-            city = p.getString("profile_${emailOrMobile}_city", "Prayagraj") ?: "Prayagraj"
++            city = p.getString("profile_${emailOrMobile}_city", "Prayagraj") ?: "Prayagraj",
++            role = p.getString("role_$emailOrMobile", "CLIENT") ?: "CLIENT"
+         )
+     }
+ 
+     fun saveUserProfile(profile: UserProfile) {
+         val emailOrMobile = getCurrentUser() ?: return
+         prefs?.edit()?.apply {
+             putString("profile_${emailOrMobile}_name", profile.name)
+             putString("profile_${emailOrMobile}_email", profile.email)
+             putString("profile_${emailOrMobile}_mobile", profile.mobile)
+             putString("profile_${emailOrMobile}_city", profile.city)
++            putString("role_$emailOrMobile", profile.role)
+         }?.apply()
+     }
+@@ -113,7 +118,8 @@
+     val name: String = "",
+     val email: String = "",
+     val mobile: String = "",
+-    val city: String = ""
++    val city: String = "",
++    val role: String = "CLIENT"
+ )
+ 
+ enum class AuthResult {

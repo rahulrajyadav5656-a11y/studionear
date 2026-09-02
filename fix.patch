@@ -1,0 +1,13 @@
+--- app/src/main/java/com/example/data/models/Models.kt
++++ app/src/main/java/com/example/data/models/Models.kt
+@@ -137,6 +137,10 @@
+     val createdAt: Long = System.currentTimeMillis()
+ )
+ 
++enum class ComplaintStatus {
++    SUBMITTED, UNDER_REVIEW, WAITING_FOR_OTHER_PARTY, RESOLVED, REJECTED, ESCALATED
++}
++
+ data class InvoiceItem(
+     val id: String = "",
+     val description: String = "",

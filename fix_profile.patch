@@ -1,0 +1,116 @@
+--- app/src/main/java/com/example/ui/screens/StudioProfileScreen.kt
++++ app/src/main/java/com/example/ui/screens/StudioProfileScreen.kt
+@@ -102,6 +102,12 @@
+     val scope = rememberCoroutineScope()
+     var selectedVideoReview by remember { mutableStateOf<Review?>(null) }
+     var selectedPortfolioImage by remember { mutableStateOf<String?>(null) }
++    var showBookingSheet by remember { mutableStateOf(false) }
++    var eventType by remember { mutableStateOf("") }
++    var eventDate by remember { mutableStateOf("") }
++    var eventLocation by remember { mutableStateOf("") }
++    var notes by remember { mutableStateOf("") }
++    var isSubmittingBooking by remember { mutableStateOf(false) }
+     
+     if (selectedVideoReview != null) {
+         VideoPlayerDialog(
+@@ -140,9 +146,92 @@
+             }
+         }
+     }
++
++    if (showBookingSheet && studio != null) {
++        androidx.compose.material3.ModalBottomSheet(
++            onDismissRequest = { showBookingSheet = false },
++            containerColor = MaterialTheme.colorScheme.surface
++        ) {
++            Column(
++                modifier = Modifier
++                    .fillMaxWidth()
++                    .padding(16.dp)
++                    .verticalScroll(rememberScrollState()),
++                verticalArrangement = Arrangement.spacedBy(16.dp)
++            ) {
++                Text("Request Booking / Inquire", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
++                Text("Studio: ${studio.name}", color = MaterialTheme.colorScheme.onSurfaceVariant)
++                
++                OutlinedTextField(
++                    value = eventType,
++                    onValueChange = { eventType = it },
++                    label = { Text("Event Type (e.g. Wedding, Birthday)") },
++                    modifier = Modifier.fillMaxWidth()
++                )
++                OutlinedTextField(
++                    value = eventDate,
++                    onValueChange = { eventDate = it },
++                    label = { Text("Event Date (DD/MM/YYYY)") },
++                    modifier = Modifier.fillMaxWidth()
++                )
++                OutlinedTextField(
++                    value = eventLocation,
++                    onValueChange = { eventLocation = it },
++                    label = { Text("City / Location") },
++                    modifier = Modifier.fillMaxWidth()
++                )
++                OutlinedTextField(
++                    value = notes,
++                    onValueChange = { notes = it },
++                    label = { Text("Additional Notes") },
++                    modifier = Modifier.fillMaxWidth(),
++                    minLines = 3
++                )
++                
++                Button(
++                    onClick = {
++                        scope.launch {
++                            isSubmittingBooking = true
++                            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
++                            if (currentUser != null) {
++                                val newBooking = com.example.data.models.Booking(
++                                    clientId = currentUser.uid,
++                                    clientEmail = currentUser.email ?: "",
++                                    studioId = studio.id,
++                                    studioOwnerId = studio.ownerId,
++                                    studioName = studio.name,
++                                    eventType = eventType,
++                                    eventDate = System.currentTimeMillis(), // In real app parse the date string
++                                    location = eventLocation,
++                                    notes = notes,
++                                    status = com.example.data.models.BookingStatus.PENDING
++                                )
++                                com.example.di.ServiceLocator.bookingRepository.createBookingRequest(newBooking)
++                                snackbarHostState.showSnackbar("Booking request sent successfully!")
++                                showBookingSheet = false
++                            } else {
++                                snackbarHostState.showSnackbar("Please log in to book.")
++                            }
++                            isSubmittingBooking = false
++                        }
++                    },
++                    modifier = Modifier.fillMaxWidth().height(56.dp),
++                    enabled = !isSubmittingBooking && eventType.isNotBlank() && eventDate.isNotBlank()
++                ) {
++                    if (isSubmittingBooking) {
++                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
++                    } else {
++                        Text("Submit Request", fontSize = 16.sp, fontWeight = FontWeight.Bold)
++                    }
++                }
++                Spacer(modifier = Modifier.height(32.dp))
++            }
++        }
++    }
+     
+     Scaffold(
+         snackbarHost = { SnackbarHost(snackbarHostState) },
++        bottomBar = {
++            BottomAppBar(containerColor = ThemeSurface) {
++                Button(
++                    onClick = { showBookingSheet = true },
++                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(50.dp),
++                    colors = ButtonDefaults.buttonColors(containerColor = ThemePrimary)
++                ) {
++                    Text("Request Booking / Inquire", fontWeight = FontWeight.Bold, fontSize = 16.sp)
++                }
++            }
++        },
+         topBar = {
