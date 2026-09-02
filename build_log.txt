@@ -1,0 +1,86 @@
+Downloading https://services.gradle.org/distributions/gradle-8.4-bin.zip
+............10%............20%.............30%............40%.............50%............60%.............70%............80%.............90%............100%
+
+Welcome to Gradle 8.4!
+
+Here are the highlights of this release:
+ - Compiling and testing with Java 21
+ - Faster Java compilation on Windows
+ - Role focused dependency configurations creation
+
+For more details see https://docs.gradle.org/8.4/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.4/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Calculating task graph as no configuration cache is available for tasks: assembleDebug
+
+FAILURE: Build failed with an exception.
+
+* Where:
+Build file '/app/applet/app/build.gradle.kts' line: 3
+
+* What went wrong:
+An exception occurred applying plugin request [id: 'com.android.application', version: '9.1.1']
+> Failed to apply plugin 'com.android.internal.version-check'.
+   > Minimum supported Gradle version is 9.3.1. Current version is 8.4.
+     Try updating the 'distributionUrl' property in /app/applet/gradle/wrapper/gradle-wrapper.properties to 'gradle-9.3.1-bin.zip'.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 4m 8s
+Configuration cache entry stored.
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libdatastore_shared_counter.so. Run with --info option to learn more.
+
+> Task :app:mergeLibDexDebug
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:compileDebugKotlin
+> Task :app:processDebugResources FROM-CACHE
+
+> Task :app:compileDebugKotlin
+w: file:///app/applet/app/src/main/java/com/example/ui/components/StudioCard.kt:346:57 'val Icons.Filled.Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/BookingConfirmationScreen.kt:54:21 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/ComplaintsScreen.kt:134:49 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/ComplaintsScreen.kt:165:45 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/DeliveryScreen.kt:70:21 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/InvoiceScreen.kt:90:17 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/StudioProfileScreen.kt:380:61 'val Icons.Filled.Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/TermsScreen.kt:107:17 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerBookingDetailsScreen.kt:48:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerChatScreen.kt:21:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerClientsScreen.kt:42:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerDashboardScreen.kt:101:44 'val Icons.Filled.Logout: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Logout.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerDashboardScreen.kt:169:98 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerEarningsScreen.kt:41:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerMonetizationScreen.kt:161:25 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerMonetizationScreen.kt:232:48 'val Icons.Filled.TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerMonetizationScreen.kt:558:13 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerNotificationsScreen.kt:35:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:95:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:396:56 'val Icons.Filled.Label: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Label.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:709:80 'val Icons.Filled.MenuBook: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.MenuBook.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:714:13 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerProfileScreen.kt:168:48 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerProfileScreen.kt:398:21 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerReviewsScreen.kt:36:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerSettingsScreen.kt:26:44 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+
+> Task :app:processDebugJavaRes
+> Task :app:compileDebugJavaWithJavac
+> Task :app:mergeDebugJavaResource
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:assembleDebug
+> Task :app:createDebugApkListingFileRedirect
+w: Detected multiple Kotlin daemon sessions at 
+
+BUILD SUCCESSFUL in 5m 59s
+40 actionable tasks: 29 executed, 3 from cache, 8 up-to-date
+Configuration cache entry stored.
