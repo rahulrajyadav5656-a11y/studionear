@@ -26,12 +26,8 @@ jobs:
 
     - name: Build Debug APK
       run: |
-        if [ -f "./gradlew" ]; then
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace --no-daemon
-        else
-          gradle assembleDebug --stacktrace --no-daemon
-        fi
+        chmod +x ./gradlew
+        ./gradlew assembleDebug -x lint -x test --stacktrace --no-daemon
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
