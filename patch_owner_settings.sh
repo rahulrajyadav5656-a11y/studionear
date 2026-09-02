@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > app/src/main/java/com/example/ui/screens/owner/OwnerSettingsScreen.kt
 package com.example.ui.screens.owner
 
 import androidx.compose.foundation.clickable
@@ -103,3 +104,4 @@ fun SettingsItem(title: String, onClick: () -> Unit) {
     }
     HorizontalDivider(color = ThemeSurface)
 }
+INNEREOF

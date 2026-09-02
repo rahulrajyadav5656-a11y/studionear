@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > app/src/main/java/com/example/ui/screens/EditProfileScreen.kt
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
@@ -157,3 +158,4 @@ fun EditProfileScreen(onBack: () -> Unit) {
         }
     }
 }
+INNEREOF

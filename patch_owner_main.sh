@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > app/src/main/java/com/example/ui/screens/owner/StudioOwnerMainScreen.kt
 package com.example.ui.screens.owner
 
 import androidx.compose.foundation.layout.padding
@@ -140,3 +141,4 @@ fun StudioOwnerMainScreen(
         }
     }
 }
+INNEREOF

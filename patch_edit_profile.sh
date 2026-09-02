@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > app/src/main/java/com/example/ui/screens/EditProfileScreen.kt
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
@@ -134,7 +135,7 @@ fun EditProfileScreen(onBack: () -> Unit) {
             Button(
                 onClick = {
                     AuthManager.saveUserProfile(UserProfile(name, email, mobile, city, role))
-                    AuthManager.setRole(role) // Ensure shared preferences is updated instantly
+                    // If the role changed significantly, the user might need to restart the app to see the right UI flow.
                     onBack()
                 },
                 modifier = Modifier
@@ -157,3 +158,4 @@ fun EditProfileScreen(onBack: () -> Unit) {
         }
     }
 }
+INNEREOF
