@@ -132,17 +132,18 @@ fun BookingFlowScreen(
                                     val targetOwnerId = studio?.ownerId ?: studioId
 
                                     val newBooking = Booking(
-                                        bookingId = "",
-                                        studioId = studioId,
-                                        studioOwnerId = targetOwnerId,
-                                        clientId = currentUserId,
-                                        packageId = packageId,
-                                        eventDate = eventDate,
-                                        eventLocation = eventLocation,
-                                        eventType = eventType,
-                                        status = BookingStatus.PENDING,
-                                        createdAt = System.currentTimeMillis()
-                                    )
+    bookingId = "",
+    studioId = studioId,
+    studioOwnerId = targetOwnerId,
+    clientId = currentUserId,
+    packageId = packageId,
+    eventType = eventType,
+    eventDate = System.currentTimeMillis(),
+    location = eventLocation,
+    status = BookingStatus.PENDING,
+    createdAt = System.currentTimeMillis()
+)
+
 
                                     val generatedId = ServiceLocator.bookingRepository.createBookingRequest(newBooking)
                                     onBookingComplete(if (generatedId.isNotBlank()) generatedId else "BK-${System.currentTimeMillis().toString().takeLast(6)}")
