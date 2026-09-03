@@ -267,7 +267,6 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Standard available Material Icons only
                 val categories = listOf(
                     Triple("Candid", Icons.Default.CameraAlt, Color(0xFF3B2864)),
                     Triple("Cinematic", Icons.Default.PlayArrow, Color(0xFF1A3B5C)),
@@ -371,10 +370,10 @@ fun HomeScreen(
                     }
                 }
             } else {
-                items(studioList) { studio ->
+                items(studioList) { studioItem ->
                     StudioCard(
-                        studio = studio,
-                        onClick = { onStudioClick(studio.id) }
+                        studio = studioItem,
+                        onClick = { onStudioClick(studioItem.id) }
                     )
                 }
             }
