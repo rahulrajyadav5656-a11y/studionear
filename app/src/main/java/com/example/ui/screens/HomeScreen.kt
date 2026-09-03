@@ -49,7 +49,6 @@ fun HomeScreen(
     var studioList by remember { mutableStateOf<List<StudioItem>>(emptyList()) }
     var isLoadingStudios by remember { mutableStateOf(true) }
 
-    // Fetch real studios from Firestore and apply hierarchy ranking
     LaunchedEffect(selectedCity, selectedFilterCategory) {
         isLoadingStudios = true
         firestore.collection("studios")
@@ -81,7 +80,6 @@ fun HomeScreen(
                     )
                 }
 
-                // Filter by category if selected
                 val filtered = if (selectedFilterCategory != null) {
                     fetched.filter { item ->
                         item.specialties.any { it.contains(selectedFilterCategory!!, ignoreCase = true) }
@@ -90,15 +88,12 @@ fun HomeScreen(
                     fetched
                 }
 
-                // Hierarchy Ranking: Sponsored first -> Verified (Blue Tick) -> Highest Rating -> Others
-                val sorted = filtered.sortedWith(
+                studioList = filtered.sortedWith(
                     compareByDescending<StudioItem> { it.isSponsored }
                         .thenByDescending { it.isVerified }
                         .thenByDescending { it.rating }
                         .thenByDescending { it.reviewCount }
                 )
-
-                studioList = sorted
                 isLoadingStudios = false
             }
             .addOnFailureListener {
@@ -106,7 +101,6 @@ fun HomeScreen(
             }
     }
 
-    // GPS Location Launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -154,7 +148,6 @@ fun HomeScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // TOP BAR: Location + Notification Bell
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -215,7 +208,6 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // BANNER: Capture Moments
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -247,7 +239,25 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // CATEGORIES / SERVICE TAGS
+                OutlinedTextField(
+                    value = "",
+                    onValueChange = {},
+                    placeholder = { Text("Search studios, area or service...", color = Color.Gray, fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                    singleLine = true,
+                    enabled = false,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledBorderColor = Color(0xFF2E2E3E),
+                        disabledContainerColor = Color(0xFF171720)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
                 Text(
                     text = "SERVICES & STYLES",
                     color = Color(0xFF8B5CF6),
@@ -257,11 +267,12 @@ fun HomeScreen(
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // Standard available Material Icons only
                 val categories = listOf(
                     Triple("Candid", Icons.Default.CameraAlt, Color(0xFF3B2864)),
-                    Triple("Cinematic", Icons.Default.Movie, Color(0xFF1A3B5C)),
-                    Triple("Drone", Icons.Default.Flight, Color(0xFF4A2818)),
-                    Triple("Traditional", Icons.Default.PhotoCamera, Color(0xFF4C1830))
+                    Triple("Cinematic", Icons.Default.PlayArrow, Color(0xFF1A3B5C)),
+                    Triple("Drone", Icons.Default.Send, Color(0xFF4A2818)),
+                    Triple("Traditional", Icons.Default.Star, Color(0xFF4C1830))
                 )
 
                 Row(
@@ -301,7 +312,6 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // STUDIOS FEED HEADER
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -330,7 +340,6 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // DYNAMIC REAL STUDIOS FEED
             if (isLoadingStudios) {
                 item {
                     Box(
@@ -354,7 +363,7 @@ fun HomeScreen(
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(Icons.Default.Storefront, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
+                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
                             Spacer(modifier = Modifier.height(8.dp))
                             Text("No studios registered yet in this area", color = Color.White, fontWeight = FontWeight.Medium)
                             Text("New studio owners will appear here automatically.", color = Color.Gray, fontSize = 12.sp)
@@ -376,7 +385,6 @@ fun HomeScreen(
         }
     }
 
-    // LOCATION BOTTOM SHEET
     if (showLocationSheet) {
         LocationPickerBottomSheet(
             onDismiss = { showLocationSheet = false },
