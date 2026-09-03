@@ -115,6 +115,7 @@ fun OwnerBookingsScreen(
                         val currentBookingId = booking.bookingId.ifEmpty { booking.id }
                         OwnerBookingCard(
                             booking = booking,
+                            onCardClick = { onNavigateToBooking(currentBookingId) },
                             onAccept = {
                                 scope.launch {
                                     ServiceLocator.bookingRepository.updateBookingStatus(currentBookingId, BookingStatus.ACCEPTED)
@@ -146,6 +147,7 @@ fun OwnerBookingsScreen(
 @Composable
 private fun OwnerBookingCard(
     booking: Booking,
+    onCardClick: () -> Unit,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
     onCallClient: (String) -> Unit
