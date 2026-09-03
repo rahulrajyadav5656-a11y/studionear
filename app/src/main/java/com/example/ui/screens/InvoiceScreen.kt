@@ -2,8 +2,9 @@ package com.example.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -14,201 +15,177 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.models.Booking
-import com.example.data.models.Studio
-import com.example.di.ServiceLocator
-import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
-import java.util.Date
+import com.google.firebase.firestore.FirebaseFirestore
+import java.text.NumberFormat
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvoiceScreen(
     bookingId: String,
-    onBack: () -> Unit
+    onBack: () -> Unit = {}
 ) {
-    var booking by remember { mutableStateOf<Booking?>(null) }
-    var studio by remember { mutableStateOf<Studio?>(null) }
-    var clientName by remember { mutableStateOf("") }
-    var clientPhone by remember { mutableStateOf("") }
+    val firestore = remember { FirebaseFirestore.getInstance() }
     var isLoading by remember { mutableStateOf(true) }
+    var bookingData by remember { mutableStateOf<Map<String, Any>?>(null) }
 
+    // Fetch live booking details from Firestore
     LaunchedEffect(bookingId) {
-        try {
-            if (bookingId.isNotBlank()) {
-                val snapshot = ServiceLocator.firestore.collection("bookings").document(bookingId).get().await()
-                val b = snapshot.toObject(Booking::class.java)
-                booking = b
-
-                if (b != null) {
-                    // Fetch Studio details
-                    if (b.studioId.isNotBlank()) {
-                        studio = ServiceLocator.studioRepository.getStudioById(b.studioId)
-                    }
-                    // Fetch Client details
-                    if (b.clientId.isNotBlank()) {
-                        val userSnap = ServiceLocator.firestore.collection("users").document(b.clientId).get().await()
-                        clientName = userSnap.getString("fullName") ?: userSnap.getString("name") ?: "Client"
-                        clientPhone = userSnap.getString("phoneNumber") ?: userSnap.getString("phone") ?: "Not Provided"
+        if (bookingId.isNotBlank()) {
+            val docId = if (bookingId.startsWith("BK-")) bookingId.removePrefix("BK-") else bookingId
+            firestore.collection("bookings").document(docId).get()
+                .addOnSuccessListener { snapshot ->
+                    if (snapshot.exists()) {
+                        bookingData = snapshot.data
+                        isLoading = false
+                    } else {
+                        // Fallback query if stored under full bookingId
+                        firestore.collection("bookings").document(bookingId).get()
+                            .addOnSuccessListener { directSnap ->
+                                bookingData = directSnap.data
+                                isLoading = false
+                            }
+                            .addOnFailureListener { isLoading = false }
                     }
                 }
-            }
-        } catch (e: Exception) {
-            // Ignore error, handle safely in UI
-        } finally {
+                .addOnFailureListener {
+                    isLoading = false
+                }
+        } else {
             isLoading = false
         }
     }
 
-    val eventDateStr = remember(booking?.eventDate) {
-        val dt = booking?.eventDate ?: 0L
-        if (dt > 0L) SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(dt)) else "Not Specified"
-    }
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 
-    val invoiceDateStr = remember(booking?.createdAt) {
-        val dt = booking?.createdAt ?: System.currentTimeMillis()
-        SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(dt))
-    }
+    // Extract dynamic fields with fallbacks
+    val studioName = bookingData?.get("studioName") as? String ?: "Studio"
+    val eventDate = bookingData?.get("eventDate") as? String ?: "Date Not Set"
+    val eventType = bookingData?.get("eventType") as? String ?: (bookingData?.get("serviceTitle") as? String ?: "Photography Service")
+    val clientName = bookingData?.get("clientName") as? String ?: "Valued Client"
+    val clientPhone = bookingData?.get("clientPhone") as? String ?: "Provided at Venue"
+    val eventLocation = bookingData?.get("eventLocation") as? String ?: "Event Venue"
+    val status = (bookingData?.get("status") as? String ?: "PENDING").uppercase()
+
+    val totalAmount = (bookingData?.get("quotedAmount") as? Number)?.toDouble()
+        ?: (bookingData?.get("totalAmount") as? Number)?.toDouble()
+        ?: 0.0
+
+    val advancePaid = (bookingData?.get("advanceAmount") as? Number)?.toDouble()
+        ?: (bookingData?.get("advancePaid") as? Number)?.toDouble()
+        ?: 0.0
+
+    val advanceRequired = if (totalAmount > 0.0) totalAmount * 0.30 else 0.0
+    val balanceDue = if (totalAmount > advancePaid) totalAmount - advancePaid else 0.0
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Booking Invoice", fontWeight = FontWeight.Bold) },
+                title = { Text("Booking Invoice", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF13131A))
             )
-        }
+        },
+        containerColor = Color(0xFF0F0F14)
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center),
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Color(0xFF8B5CF6))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Summary Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
                 ) {
-                    item {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "STUDIONEAR",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "Official Booking Invoice",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    item {
-                        InvoiceSectionCard(title = "INVOICE DETAILS") {
-                            InvoiceRow("Invoice Number", "INV-${bookingId.takeLast(6).uppercase()}")
-                            InvoiceRow("Invoice Date", invoiceDateStr)
-                            InvoiceRow("Booking ID", bookingId)
-                            InvoiceRow("Status", booking?.status?.name ?: "PENDING")
-                        }
-                    }
-
-                    item {
-                        InvoiceSectionCard(title = "CLIENT DETAILS") {
-                            InvoiceRow("Name", clientName.ifBlank { "Client" })
-                            InvoiceRow("Contact", clientPhone.ifBlank { "Not Specified" })
-                            InvoiceRow("Event Location", booking?.location?.ifBlank { "Venue" } ?: "Venue")
-                        }
-                    }
-
-                    item {
-                        InvoiceSectionCard(title = "STUDIO DETAILS") {
-                            InvoiceRow("Studio Name", studio?.name?.ifBlank { booking?.studioName } ?: "Verified Studio")
-                            InvoiceRow("Owner / Contact", studio?.contactPerson?.ifBlank { studio?.phone } ?: "Studio Manager")
-                            InvoiceRow("Phone", studio?.phone?.ifBlank { "Not Specified" } ?: "Not Specified")
-                            InvoiceRow("City", studio?.city?.ifBlank { "Pan-India" } ?: "Pan-India")
-                        }
-                    }
-
-                    item {
-                        InvoiceSectionCard(title = "EVENT DETAILS & BILLING") {
-                            InvoiceRow("Event Type", booking?.eventType?.ifBlank { "Photography Service" } ?: "Photography Service")
-                            InvoiceRow("Event Date", eventDateStr)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                            InvoiceRow("Total Quoted Amount", "₹${booking?.totalAmount?.toInt() ?: 0}")
-                            InvoiceRow("Advance Required (30%)", "₹${((booking?.totalAmount ?: 0.0) * 0.30).toInt()}")
-                            InvoiceRow("Advance Paid", "₹${booking?.paidAmount?.toInt() ?: 0}")
-                        }
-                    }
-
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Cancellation & Refund Policy",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "• Full refund available if cancelled 7+ days prior to event date.\n• Cancellations within 7 days are non-refundable.\n• Verified Studio guarantee active on this booking.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        InvoiceRow("Invoice Number", "INV-${bookingId.takeLast(6)}")
+                        InvoiceRow("Booking ID", bookingId)
+                        InvoiceRow("Status", status, highlightColor = if (status == "CONFIRMED" || status == "ACCEPTED") Color(0xFF10B981) else Color(0xFFF59E0B))
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Client Details
+                Text("CLIENT DETAILS", color = Color(0xFF8B5CF6), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        InvoiceRow("Name", clientName)
+                        InvoiceRow("Contact", clientPhone)
+                        InvoiceRow("Event Location", eventLocation)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Studio Details
+                Text("STUDIO DETAILS", color = Color(0xFF8B5CF6), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        InvoiceRow("Studio Name", studioName)
+                        InvoiceRow("Service", eventType)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Event & Billing Details
+                Text("EVENT DETAILS & BILLING", color = Color(0xFF8B5CF6), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(6.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        InvoiceRow("Event Date", eventDate)
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = Color(0xFF2A2A38))
+                        InvoiceRow("Total Quoted Amount", currencyFormat.format(totalAmount))
+                        InvoiceRow("Advance Required (30%)", currencyFormat.format(advanceRequired))
+                        InvoiceRow("Advance Paid", currencyFormat.format(advancePaid))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = Color(0xFF2A2A38))
+                        InvoiceRow("Balance Due at Venue", currencyFormat.format(balanceDue), highlightColor = Color(0xFFEF4444), isBold = true)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
 @Composable
-private fun InvoiceSectionCard(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit
+private fun InvoiceRow(
+    label: String,
+    value: String,
+    highlightColor: Color = Color.White,
+    isBold: Boolean = false
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
-        }
-    }
-}
-
-@Composable
-private fun InvoiceRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -216,7 +193,12 @@ private fun InvoiceRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = label, color = Color(0xFF9CA3AF), fontSize = 13.sp)
+        Text(
+            text = value,
+            color = highlightColor,
+            fontSize = 13.sp,
+            fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
