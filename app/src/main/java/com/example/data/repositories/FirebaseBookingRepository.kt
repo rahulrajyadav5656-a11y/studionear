@@ -4,7 +4,6 @@ import android.util.Log
 import com.example.data.models.Booking
 import com.example.data.models.BookingStatus
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -28,7 +27,7 @@ class FirebaseBookingRepository(
             docRef.set(newBooking).await()
             newBooking.id
         } catch (e: Exception) {
-            Log.e("FirebaseBooking", "Error creating booking: \${e.message}")
+            Log.e("FirebaseBooking", "Error creating booking: ${e.message}")
             ""
         }
     }
@@ -36,14 +35,14 @@ class FirebaseBookingRepository(
     override fun getClientBookings(clientId: String): Flow<List<Booking>> = callbackFlow {
         val listener = firestore.collection("bookings")
             .whereEqualTo("clientId", clientId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e("FirebaseBooking", "Listen failed: \${error.message}")
+                    Log.e("FirebaseBooking", "Listen failed: ${error.message}")
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
                     val bookings = snapshot.toObjects(Booking::class.java)
+                        .sortedByDescending { it.createdAt }
                     trySend(bookings)
                 }
             }
@@ -53,14 +52,14 @@ class FirebaseBookingRepository(
     override fun getOwnerBookings(ownerId: String): Flow<List<Booking>> = callbackFlow {
         val listener = firestore.collection("bookings")
             .whereEqualTo("studioOwnerId", ownerId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e("FirebaseBooking", "Listen failed: \${error.message}")
+                    Log.e("FirebaseBooking", "Listen failed: ${error.message}")
                     return@addSnapshotListener
                 }
                 if (snapshot != null) {
                     val bookings = snapshot.toObjects(Booking::class.java)
+                        .sortedByDescending { it.createdAt }
                     trySend(bookings)
                 }
             }
@@ -72,7 +71,7 @@ class FirebaseBookingRepository(
             firestore.collection("bookings").document(bookingId)
                 .update("status", status.name).await()
         } catch (e: Exception) {
-            Log.e("FirebaseBooking", "Error updating status: \${e.message}")
+            Log.e("FirebaseBooking", "Error updating status: ${e.message}")
         }
     }
 
@@ -81,7 +80,7 @@ class FirebaseBookingRepository(
             firestore.collection("bookings").document(bookingId)
                 .update("agreementAccepted", true).await()
         } catch (e: Exception) {
-            Log.e("FirebaseBooking", "Error accepting agreement: \${e.message}")
+            Log.e("FirebaseBooking", "Error accepting agreement: ${e.message}")
         }
     }
 }
