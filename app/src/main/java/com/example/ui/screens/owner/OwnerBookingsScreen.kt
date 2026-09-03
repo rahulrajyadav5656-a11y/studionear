@@ -32,7 +32,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OwnerBookingsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit = {},
+    onNavigateToBooking: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -159,7 +160,7 @@ private fun OwnerBookingCard(
                 clientName = doc.getString("fullName") ?: doc.getString("name") ?: "Client"
                 clientPhone = doc.getString("phoneNumber") ?: doc.getString("phone") ?: ""
             } catch (e: Exception) {
-                // Safe fallback
+                // Fallback
             }
         }
     }
