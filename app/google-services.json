@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "363062489279",
+    "project_id": "studionear-f3841",
+    "storage_bucket": "studionear-f3841.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363062489279:android:d13323b18899738e04560a",
+        "android_client_info": {
+          "package_name": "com.aistudio.studionear.rlmygx"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOXj2y-PgGeY1n7qBut62IRS4Lx8tbRS4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
