@@ -25,11 +25,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.ui.components.LocationPickerBottomSheet
-import com.example.ui.components.StudioCard
-import com.example.ui.components.StudioItem
 import com.example.util.LocationHelper
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+
+data class HomeStudioData(
+    val id: String = "",
+    val name: String = "",
+    val city: String = "",
+    val area: String = "",
+    val rating: Double = 5.0,
+    val reviewCount: Int = 0,
+    val startingPrice: Double = 0.0,
+    val isSponsored: Boolean = false,
+    val isVerified: Boolean = false,
+    val specialties: List<String> = emptyList()
+)
 
 @Composable
 fun HomeScreen(
@@ -46,7 +57,7 @@ fun HomeScreen(
     var showLocationSheet by remember { mutableStateOf(false) }
 
     var selectedFilterCategory by remember { mutableStateOf<String?>(null) }
-    var studioList by remember { mutableStateOf<List<StudioItem>>(emptyList()) }
+    var studioList by remember { mutableStateOf<List<HomeStudioData>>(emptyList()) }
     var isLoadingStudios by remember { mutableStateOf(true) }
 
     LaunchedEffect(selectedCity, selectedFilterCategory) {
@@ -66,7 +77,7 @@ fun HomeScreen(
                     val rawSpecialties = doc.get("specialties") as? List<*>
                     val specialties = rawSpecialties?.mapNotNull { it?.toString() } ?: emptyList()
 
-                    StudioItem(
+                    HomeStudioData(
                         id = doc.id,
                         name = name,
                         city = city,
@@ -89,7 +100,7 @@ fun HomeScreen(
                 }
 
                 studioList = filtered.sortedWith(
-                    compareByDescending<StudioItem> { it.isSponsored }
+                    compareByDescending<HomeStudioData> { it.isSponsored }
                         .thenByDescending { it.isVerified }
                         .thenByDescending { it.rating }
                         .thenByDescending { it.reviewCount }
@@ -246,9 +257,7 @@ fun HomeScreen(
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
                     singleLine = true,
                     enabled = false,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { },
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         disabledBorderColor = Color(0xFF2E2E3E),
@@ -371,10 +380,124 @@ fun HomeScreen(
                 }
             } else {
                 items(studioList) { studioItem ->
-                    StudioCard(
-                        studio = studioItem,
-                        onClick = { onStudioClick(studioItem.id) }
-                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .clickable { onStudioClick(studioItem.id) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = studioItem.name,
+                                        color = Color.White,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (studioItem.isVerified) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = "Verified Studio",
+                                            tint = Color(0xFF3B82F6),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                if (studioItem.isSponsored) {
+                                    Surface(
+                                        color = Color(0xFFF59E0B).copy(alpha = 0.2f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "SPONSORED",
+                                            color = Color(0xFFF59E0B),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "${studioItem.area}, ${studioItem.city}",
+                                color = Color(0xFF9CA3AF),
+                                fontSize = 13.sp
+                            )
+
+                            if (studioItem.specialties.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    studioItem.specialties.take(3).forEach { tag ->
+                                        Surface(
+                                            color = Color(0xFF2A2A3A),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = tag,
+                                                color = Color(0xFFD1D5DB),
+                                                fontSize = 11.sp,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            HorizontalDivider(color = Color(0xFF2E2E3E), thickness = 0.8.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "Rating",
+                                        tint = Color(0xFFFBBF24),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${studioItem.rating}",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = " (${studioItem.reviewCount} shoots)",
+                                        color = Color.Gray,
+                                        fontSize = 12.sp
+                                    )
+                                }
+
+                                if (studioItem.startingPrice > 0) {
+                                    Text(
+                                        text = "Starts ₹${studioItem.startingPrice.toInt()}",
+                                        color = Color(0xFF10B981),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
