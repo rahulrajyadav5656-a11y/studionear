@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +25,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.ui.components.LocationPickerBottomSheet
+import com.example.ui.components.StudioCard
+import com.example.ui.components.StudioItem
 import com.example.util.LocationHelper
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 @Composable
@@ -37,12 +39,74 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val firestore = remember { FirebaseFirestore.getInstance() }
 
     var selectedArea by remember { mutableStateOf("Civil Lines") }
     var selectedCity by remember { mutableStateOf("Prayagraj") }
     var showLocationSheet by remember { mutableStateOf(false) }
 
-    // Location Permission Launcher
+    var selectedFilterCategory by remember { mutableStateOf<String?>(null) }
+    var studioList by remember { mutableStateOf<List<StudioItem>>(emptyList()) }
+    var isLoadingStudios by remember { mutableStateOf(true) }
+
+    // Fetch real studios from Firestore and apply hierarchy ranking
+    LaunchedEffect(selectedCity, selectedFilterCategory) {
+        isLoadingStudios = true
+        firestore.collection("studios")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val fetched = snapshot.documents.mapNotNull { doc ->
+                    val name = doc.getString("name") ?: return@mapNotNull null
+                    val city = doc.getString("city") ?: ""
+                    val area = doc.getString("area") ?: ""
+                    val rating = doc.getDouble("rating") ?: 5.0
+                    val reviewCount = doc.getLong("reviewCount")?.toInt() ?: 0
+                    val startingPrice = doc.getDouble("startingPrice") ?: 0.0
+                    val isSponsored = doc.getBoolean("isSponsored") ?: false
+                    val isVerified = doc.getBoolean("isVerified") ?: false
+                    val rawSpecialties = doc.get("specialties") as? List<*>
+                    val specialties = rawSpecialties?.mapNotNull { it?.toString() } ?: emptyList()
+
+                    StudioItem(
+                        id = doc.id,
+                        name = name,
+                        city = city,
+                        area = area,
+                        rating = rating,
+                        reviewCount = reviewCount,
+                        startingPrice = startingPrice,
+                        isSponsored = isSponsored,
+                        isVerified = isVerified,
+                        specialties = specialties
+                    )
+                }
+
+                // Filter by category if selected
+                val filtered = if (selectedFilterCategory != null) {
+                    fetched.filter { item ->
+                        item.specialties.any { it.contains(selectedFilterCategory!!, ignoreCase = true) }
+                    }
+                } else {
+                    fetched
+                }
+
+                // Hierarchy Ranking: Sponsored first -> Verified (Blue Tick) -> Highest Rating -> Others
+                val sorted = filtered.sortedWith(
+                    compareByDescending<StudioItem> { it.isSponsored }
+                        .thenByDescending { it.isVerified }
+                        .thenByDescending { it.rating }
+                        .thenByDescending { it.reviewCount }
+                )
+
+                studioList = sorted
+                isLoadingStudios = false
+            }
+            .addOnFailureListener {
+                isLoadingStudios = false
+            }
+    }
+
+    // GPS Location Launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -135,7 +199,6 @@ fun HomeScreen(
                         }
                     }
 
-                    // Notification Button
                     IconButton(
                         onClick = onNotificationClick,
                         modifier = Modifier
@@ -173,36 +236,16 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { /* Will connect with discovery query in next step */ },
+                            onClick = { selectedFilterCategory = null },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Explore Studios", fontWeight = FontWeight.SemiBold)
+                            Text("Explore All Studios", fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
-
-                // SEARCH BAR
-                OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    placeholder = { Text("Search studios, area or service...", color = Color.Gray, fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
-                    singleLine = true,
-                    enabled = false,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { /* Opens search */ },
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledBorderColor = Color(0xFF2E2E3E),
-                        disabledContainerColor = Color(0xFF171720)
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(18.dp))
 
                 // CATEGORIES / SERVICE TAGS
                 Text(
@@ -226,30 +269,39 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     categories.forEach { cat ->
+                        val isSelected = selectedFilterCategory.equals(cat.first, ignoreCase = true)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { onCategoryClick(cat.first) }
+                                .clickable {
+                                    selectedFilterCategory = if (isSelected) null else cat.first
+                                    onCategoryClick(cat.first)
+                                }
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(60.dp)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(cat.third),
+                                    .background(if (isSelected) Color(0xFF8B5CF6) else cat.third),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(cat.second, contentDescription = cat.first, tint = Color.White, modifier = Modifier.size(26.dp))
                             }
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(cat.first.uppercase(), color = Color(0xFFD1D5DB), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = cat.first.uppercase(),
+                                color = if (isSelected) Color.White else Color(0xFFD1D5DB),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // TOP STUDIOS HEADER
+                // STUDIOS FEED HEADER
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -257,36 +309,74 @@ fun HomeScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Top Studios in $selectedCity",
+                            text = if (selectedFilterCategory != null) "${selectedFilterCategory} Studios" else "Top Studios in $selectedCity",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
+                        Text(
+                            text = "${studioList.size} studios available",
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
                     }
-                    Text(
-                        text = "View All",
-                        color = Color(0xFF8B5CF6),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (selectedFilterCategory != null) {
+                        TextButton(onClick = { selectedFilterCategory = null }) {
+                            Text("Clear Filter", color = Color(0xFF8B5CF6))
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Real studios list will plug here next
+            // DYNAMIC REAL STUDIOS FEED
+            if (isLoadingStudios) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF8B5CF6))
+                    }
+                }
+            } else if (studioList.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Default.Storefront, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("No studios registered yet in this area", color = Color.White, fontWeight = FontWeight.Medium)
+                            Text("New studio owners will appear here automatically.", color = Color.Gray, fontSize = 12.sp)
+                        }
+                    }
+                }
+            } else {
+                items(studioList) { studio ->
+                    StudioCard(
+                        studio = studio,
+                        onClick = { onStudioClick(studio.id) }
+                    )
+                }
+            }
+
             item {
-                Text(
-                    text = "Nearby studios will load based on selected location...",
-                    color = Color.Gray,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
 
-    // LOCATION SELECTION BOTTOM SHEET
+    // LOCATION BOTTOM SHEET
     if (showLocationSheet) {
         LocationPickerBottomSheet(
             onDismiss = { showLocationSheet = false },
