@@ -85,10 +85,7 @@ fun MainScreen(
                 3 -> FavoritesScreen(
                     onStudioClick = onStudioClick
                 )
-                4 -> ProfileScreen(
-                    onLogoutClick = onLogoutClick,
-                    onProfileMenuClick = onProfileMenuClick
-                )
+                4 -> ProfileScreen()
             }
         }
     }
