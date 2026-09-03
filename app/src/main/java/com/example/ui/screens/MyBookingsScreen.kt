@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,7 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,7 +31,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyBookingsScreen(
-    onBack: () -> Unit,
+    onBack: () -> Unit = {},
     onBookingClick: (String) -> Unit,
     onReviewBooking: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
@@ -66,12 +68,7 @@ fun MyBookingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Bookings", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                title = { Text("My Bookings", fontWeight = FontWeight.Bold) }
             )
         }
     ) { padding ->
@@ -117,6 +114,12 @@ fun MyBookingsScreen(
                         BookingItemCard(
                             booking = booking,
                             onCardClick = { onBookingClick(currentBookingId) },
+                            onCallClick = {
+                                val intent = Intent(Intent.ACTION_DIAL).apply {
+                                    data = Uri.parse("tel:${booking.studioPhone.ifEmpty { "100" }}")
+                                }
+                                context.startActivity(intent)
+                            },
                             onCancelClick = {
                                 val now = System.currentTimeMillis()
                                 val sevenDaysInMillis = 7L * 24 * 60 * 60 * 1000
@@ -146,12 +149,19 @@ fun MyBookingsScreen(
 private fun BookingItemCard(
     booking: Booking,
     onCardClick: () -> Unit,
+    onCallClick: () -> Unit,
     onCancelClick: () -> Unit
 ) {
     val eventDateStr = if (booking.eventDate > 0L) {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(booking.eventDate))
     } else {
         "Date Not Specified"
+    }
+
+    val displayStudioName = when {
+        booking.studioName.isNotBlank() -> booking.studioName
+        booking.studioId.isNotBlank() -> "Studio (${booking.studioId.take(6)})"
+        else -> "Registered Studio"
     }
 
     Card(
@@ -168,7 +178,7 @@ private fun BookingItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = booking.studioName.ifEmpty { "Verified Studio" },
+                    text = displayStudioName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -187,9 +197,9 @@ private fun BookingItemCard(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "Event: ${booking.eventType.ifEmpty { "Photography" }}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Event: ${booking.eventType.ifEmpty { "Photography Shoot" }}", style = MaterialTheme.typography.bodyMedium)
             Text(text = "Date: $eventDateStr", style = MaterialTheme.typography.bodyMedium)
-            Text(text = "Location: ${booking.location.ifEmpty { "Venue" }}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Location: ${booking.location.ifEmpty { "Venue Address" }}", style = MaterialTheme.typography.bodyMedium)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
 
@@ -199,14 +209,46 @@ private fun BookingItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text(text = "Total Quoted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(text = "₹${booking.totalAmount.toInt()}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text(
+                        text = "Total Quoted",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (booking.totalAmount > 0) {
+                        Text(
+                            text = "₹${booking.totalAmount.toInt()}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    } else {
+                        Text(
+                            text = "Quote Awaited",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalIconButton(
+                        onClick = onCallClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Call Studio",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
                     OutlinedButton(
                         onClick = onCardClick,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                     ) {
                         Text("Invoice", fontSize = 12.sp)
                     }
@@ -215,7 +257,8 @@ private fun BookingItemCard(
                         Button(
                             onClick = onCancelClick,
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                         ) {
                             Text("Cancel", fontSize = 12.sp, color = Color.White)
                         }
