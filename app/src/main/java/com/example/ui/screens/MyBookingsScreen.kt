@@ -56,9 +56,9 @@ fun MyBookingsScreen(
     val filteredBookings = remember(selectedTabIndex, bookings) {
         when (selectedTabIndex) {
             0 -> bookings.filter { it.status == BookingStatus.PENDING }
-            1 -> bookings.filter { it.status == BookingStatus.ACCEPTED || it.status == BookingStatus.IN_PROGRESS }
+            1 -> bookings.filter { it.status == BookingStatus.ACCEPTED }
             2 -> bookings.filter { it.status == BookingStatus.COMPLETED }
-            3 -> bookings.filter { it.status == BookingStatus.CANCELLED || it.status == BookingStatus.REJECTED || it.status == BookingStatus.DECLINED }
+            3 -> bookings.filter { it.status == BookingStatus.CANCELLED || it.status == BookingStatus.REJECTED }
             else -> emptyList()
         }
     }
@@ -113,9 +113,10 @@ fun MyBookingsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(filteredBookings) { booking ->
+                        val currentBookingId = booking.bookingId.ifEmpty { booking.id }
                         BookingItemCard(
                             booking = booking,
-                            onCardClick = { onBookingClick(booking.bookingId) },
+                            onCardClick = { onBookingClick(currentBookingId) },
                             onCancelClick = {
                                 val now = System.currentTimeMillis()
                                 val sevenDaysInMillis = 7L * 24 * 60 * 60 * 1000
@@ -124,13 +125,13 @@ fun MyBookingsScreen(
                                 if (timeDifference >= sevenDaysInMillis) {
                                     scope.launch {
                                         ServiceLocator.bookingRepository.updateBookingStatus(
-                                            booking.bookingId,
+                                            currentBookingId,
                                             BookingStatus.CANCELLED
                                         )
-                                        Toast.makeText(context, "Booking cancelled successfully. Refund initiated under policy.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Booking cancelled successfully.", Toast.LENGTH_LONG).show()
                                     }
                                 } else {
-                                    Toast.makeText(context, "Cancellation not allowed within 7 days of event date.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "Cannot cancel within 7 days of event date.", Toast.LENGTH_LONG).show()
                                 }
                             }
                         )
