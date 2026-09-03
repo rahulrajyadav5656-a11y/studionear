@@ -19,6 +19,7 @@ import com.example.ui.theme.ThemeBackground
 import com.example.ui.theme.ThemePrimary
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.StudioProfileScreen
+import com.example.ui.screens.StudioDetailScreen
 import com.example.ui.screens.BookingFlowScreen
 import com.example.ui.screens.MainScreen
 import com.example.ui.screens.OnboardingScreen
@@ -232,15 +233,12 @@ fun AppNavigation(
             )
         }
         
+        // Connected to real Firestore-backed StudioDetailScreen
         composable(Screen.StudioProfile.route) { backStackEntry ->
             val studioId = backStackEntry.arguments?.getString("studioId") ?: return@composable
-            StudioProfileScreen(
+            StudioDetailScreen(
                 studioId = studioId,
-                onBack = { navController.popBackStack() },
-                onBookPackage = { packageId ->
-                    // Usually you view package details first
-                    navController.navigate(Screen.PackageDetails.createRoute(packageId))
-                }
+                onBackClick = { navController.popBackStack() }
             )
         }
         
