@@ -51,9 +51,12 @@ jobs:
           EOF
           fi
 
-      - name: Build APK with Gradle 8.7
-        run: |
-          ./gradlew assembleDebug -x test -x lint --stacktrace --no-daemon
+            - name: Make gradlew executable -
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug -x test -x lint --stacktrace --no-daemon
+
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
