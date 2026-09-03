@@ -1,24 +1,27 @@
 package com.example.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.Booking
 import com.example.data.models.BookingStatus
 import com.example.di.ServiceLocator
-import com.example.ui.theme.*
-import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,87 +29,112 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyBookingsScreen(
-    onReviewBooking: (String, String, String) -> Unit = { _, _, _ -> },
-    onBookingClick: (String) -> Unit = {}
+    onBack: () -> Unit,
+    onBookingClick: (String) -> Unit,
+    onReviewBooking: (String, String, String) -> Unit = { _, _, _ -> }
 ) {
-    val clientId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return
-    
-    var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("Pending", "Upcoming", "Completed", "Cancelled/Declined")
-    
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val clientId = ServiceLocator.auth.currentUser?.uid ?: ""
+
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Pending", "Accepted", "Completed", "Cancelled")
     var bookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
-    
+    var isLoading by remember { mutableStateOf(true) }
+
     LaunchedEffect(clientId) {
-        ServiceLocator.bookingRepository.getClientBookings(clientId).collect {
-            bookings = it
+        if (clientId.isNotBlank()) {
+            ServiceLocator.bookingRepository.getClientBookings(clientId).collect {
+                bookings = it
+                isLoading = false
+            }
+        } else {
+            isLoading = false
         }
     }
-    
+
     val filteredBookings = remember(selectedTabIndex, bookings) {
-        when(selectedTabIndex) {
+        when (selectedTabIndex) {
             0 -> bookings.filter { it.status == BookingStatus.PENDING }
-            1 -> bookings.filter { it.status == BookingStatus.ACCEPTED }
+            1 -> bookings.filter { it.status == BookingStatus.ACCEPTED || it.status == BookingStatus.IN_PROGRESS }
             2 -> bookings.filter { it.status == BookingStatus.COMPLETED }
             3 -> bookings.filter { it.status == BookingStatus.CANCELLED || it.status == BookingStatus.REJECTED || it.status == BookingStatus.DECLINED }
             else -> emptyList()
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(ThemeBackground)
-    ) {
-        TopAppBar(
-            title = { Text("My Bookings", fontWeight = FontWeight.Bold) },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeBackground)
-        )
-        
-        ScrollableTabRow(
-            selectedTabIndex = selectedTabIndex,
-            containerColor = ThemeBackground,
-            edgePadding = 16.dp,
-            indicator = { tabPositions ->
-                SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                    color = ThemePrimary
-                )
-            }
-        ) {
-            tabs.forEachIndexed { index, title ->
-                Tab(
-                    selected = selectedTabIndex == index,
-                    onClick = { selectedTabIndex = index },
-                    text = { 
-                        Text(
-                            title, 
-                            fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTabIndex == index) ThemePrimary else ThemeOnSurfaceVariant
-                        ) 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("My Bookings", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                )
-            }
+                }
+            )
         }
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            if (filteredBookings.isEmpty()) {
-                item {
-                    Text("No bookings found in this category.", color = ThemeOnSurfaceVariant, modifier = Modifier.padding(16.dp))
+            ScrollableTabRow(
+                selectedTabIndex = selectedTabIndex,
+                edgePadding = 16.dp
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = { Text(title, fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal) }
+                    )
+                }
+            }
+
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else if (filteredBookings.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "No bookings found in this category.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
-                items(filteredBookings) { booking ->
-                    BookingItem(
-                        booking = booking,
-                        hasReviewed = false, // Simplified for this context
-                        onReviewBooking = {
-                            val studioName = booking.studioName.ifEmpty { "Studio" }
-                            onReviewBooking(booking.id, booking.studioId, studioName)
-                        },
-                        onClick = { onBookingClick(booking.id) }
-                    )
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(filteredBookings) { booking ->
+                        BookingItemCard(
+                            booking = booking,
+                            onCardClick = { onBookingClick(booking.bookingId) },
+                            onCancelClick = {
+                                val now = System.currentTimeMillis()
+                                val sevenDaysInMillis = 7L * 24 * 60 * 60 * 1000
+                                val timeDifference = booking.eventDate - now
+
+                                if (timeDifference >= sevenDaysInMillis) {
+                                    scope.launch {
+                                        ServiceLocator.bookingRepository.updateBookingStatus(
+                                            booking.bookingId,
+                                            BookingStatus.CANCELLED
+                                        )
+                                        Toast.makeText(context, "Booking cancelled successfully. Refund initiated under policy.", Toast.LENGTH_LONG).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Cancellation not allowed within 7 days of event date.", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -114,43 +142,84 @@ fun MyBookingsScreen(
 }
 
 @Composable
-fun BookingItem(
+private fun BookingItemCard(
     booking: Booking,
-    hasReviewed: Boolean,
-    onReviewBooking: () -> Unit,
-    onClick: () -> Unit
+    onCardClick: () -> Unit,
+    onCancelClick: () -> Unit
 ) {
+    val eventDateStr = if (booking.eventDate > 0L) {
+        SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(booking.eventDate))
+    } else {
+        "Date Not Specified"
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ThemeSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, ThemeOutline)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            val studioName = booking.studioName.ifEmpty { "Studio Name Not Provided" }
-            Text(studioName, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ThemeOnBackground)
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            val eventDateStr = if (booking.eventDate > 0) {
-                SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(booking.eventDate))
-            } else {
-                "Not Specified"
-            }
-            Text("Event Date: $eventDateStr", fontSize = 14.sp, color = ThemeOnSurfaceVariant)
-            if (booking.eventType.isNotBlank()) {
-                Text("Type: ${booking.eventType}", fontSize = 14.sp, color = ThemeOnSurfaceVariant)
-            }
-            if (booking.location.isNotBlank()) {
-                Text("Location: ${booking.location}", fontSize = 14.sp, color = ThemeOnSurfaceVariant)
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Status: ${booking.status}", color = ThemePrimary, fontWeight = FontWeight.Medium)
+                Text(
+                    text = booking.studioName.ifEmpty { "Verified Studio" },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = booking.status.name,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Event: ${booking.eventType.ifEmpty { "Photography" }}", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Date: $eventDateStr", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Location: ${booking.location.ifEmpty { "Venue" }}", style = MaterialTheme.typography.bodyMedium)
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(text = "Total Quoted", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "₹${booking.totalAmount.toInt()}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onCardClick,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Invoice", fontSize = 12.sp)
+                    }
+
+                    if (booking.status == BookingStatus.PENDING || booking.status == BookingStatus.ACCEPTED) {
+                        Button(
+                            onClick = onCancelClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Cancel", fontSize = 12.sp, color = Color.White)
+                        }
+                    }
+                }
             }
         }
     }
