@@ -15,7 +15,12 @@ import androidx.compose.ui.Modifier
 
 @Composable
 fun MainScreen(
-    onNavigateToStudio: (String) -> Unit = {},
+    onStudioClick: (String) -> Unit = {},
+    onNotificationClick: () -> Unit = {},
+    onCategoryClick: (String) -> Unit = {},
+    onLogoutClick: () -> Unit = {},
+    onReviewBooking: (String, String, String) -> Unit = { _, _, _ -> },
+    onProfileMenuClick: (String) -> Unit = {},
     onNavigateToBookingDetails: (String) -> Unit = {},
     onNavigateToProfileEdit: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
@@ -65,22 +70,24 @@ fun MainScreen(
         ) {
             when (selectedTab) {
                 0 -> HomeScreen(
-                    onStudioClick = onNavigateToStudio,
-                    onSearchClick = { selectedTab = 1 }
+                    onStudioClick = onStudioClick,
+                    onNotificationClick = onNotificationClick,
+                    onCategoryClick = onCategoryClick
                 )
                 1 -> SearchScreen(
-                    onStudioClick = onNavigateToStudio
+                    onStudioClick = onStudioClick
                 )
                 2 -> MyBookingsScreen(
                     onBack = { selectedTab = 0 },
-                    onBookingClick = onNavigateToBookingDetails
+                    onBookingClick = onNavigateToBookingDetails,
+                    onReviewBooking = onReviewBooking
                 )
                 3 -> FavoritesScreen(
-                    onStudioClick = onNavigateToStudio
+                    onStudioClick = onStudioClick
                 )
                 4 -> ProfileScreen(
-                    onEditProfile = onNavigateToProfileEdit,
-                    onSettingsClick = onNavigateToSettings
+                    onLogoutClick = onLogoutClick,
+                    onProfileMenuClick = onProfileMenuClick
                 )
             }
         }
