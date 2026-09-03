@@ -1,7 +1,5 @@
 package com.example.ui.screens
 
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,8 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -114,12 +110,6 @@ fun MyBookingsScreen(
                         BookingItemCard(
                             booking = booking,
                             onCardClick = { onBookingClick(currentBookingId) },
-                            onCallClick = {
-                                val intent = Intent(Intent.ACTION_DIAL).apply {
-                                    data = Uri.parse("tel:${booking.studioPhone.ifEmpty { "100" }}")
-                                }
-                                context.startActivity(intent)
-                            },
                             onCancelClick = {
                                 val now = System.currentTimeMillis()
                                 val sevenDaysInMillis = 7L * 24 * 60 * 60 * 1000
@@ -149,7 +139,6 @@ fun MyBookingsScreen(
 private fun BookingItemCard(
     booking: Booking,
     onCardClick: () -> Unit,
-    onCallClick: () -> Unit,
     onCancelClick: () -> Unit
 ) {
     val eventDateStr = if (booking.eventDate > 0L) {
@@ -234,17 +223,6 @@ private fun BookingItemCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FilledTonalIconButton(
-                        onClick = onCallClick,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Phone,
-                            contentDescription = "Call Studio",
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
                     OutlinedButton(
                         onClick = onCardClick,
                         shape = RoundedCornerShape(8.dp),
