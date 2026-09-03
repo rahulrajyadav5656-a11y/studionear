@@ -116,12 +116,13 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  // Uncomment to use Firestore:
+  
+  // Firebase Services
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.storage)
+  implementation("com.google.firebase:firebase-messaging-ktx")
 
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
+  // Authentication & Credentials
   implementation(libs.firebase.auth)
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
