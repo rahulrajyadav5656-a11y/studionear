@@ -11,12 +11,12 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk = 35
+  compileSdk = 34
 
   defaultConfig {
     applicationId = "com.aistudio.studionear.rlmygx"
     minSdk = 24
-    targetSdk = 36
+    targetSdk = 34
     versionCode = 1
     versionName = "1.0"
 
@@ -52,6 +52,9 @@ android {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
   }
+  kotlinOptions {
+    jvmTarget = "17"
+  }
   buildFeatures {
     compose = true
     buildConfig = true
@@ -69,6 +72,10 @@ android {
     abortOnError = false
     checkReleaseBuilds = false
   }
+}
+
+kotlin {
+  jvmToolchain(17)
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -109,7 +116,6 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
   // Uncomment to use Firestore:
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.storage)
@@ -120,8 +126,6 @@ dependencies {
   implementation(libs.androidx.credentials)
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.logging.interceptor)

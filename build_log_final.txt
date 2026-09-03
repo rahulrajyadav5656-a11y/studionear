@@ -1,0 +1,88 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.4/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+> Task :app:generateDebugResValues
+> Task :app:processDebugGoogleServices
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets FROM-CACHE
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugJniLibFolders FROM-CACHE
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeExtDexDebug
+> Task :app:mergeLibDexDebug
+
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
+
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugResources
+> Task :app:kspDebugKotlin
+> Task :app:compileDebugKotlin
+w: file:///app/applet/app/src/main/java/com/example/ui/components/StudioCard.kt:346:57 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/BookingConfirmationScreen.kt:54:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/BookingFlowScreen.kt:16:5 Parameter 'studioId' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/BookingFlowScreen.kt:17:5 Parameter 'packageId' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/ComplaintsScreen.kt:134:49 'menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/ComplaintsScreen.kt:165:45 'menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/DeliveryScreen.kt:70:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/HomeScreen.kt:180:5 Parameter 'onCategoryClick' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/HomeScreen.kt:187:9 Variable 'isLoading' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/InvoiceScreen.kt:90:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/MyBookingsScreen.kt:119:5 Parameter 'hasReviewed' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/MyBookingsScreen.kt:120:5 Parameter 'onReviewBooking' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/PackageScreen.kt:22:5 Parameter 'packageId' is never used
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/StudioProfileScreen.kt:380:61 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/TermsScreen.kt:107:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerBookingDetailsScreen.kt:48:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerChatScreen.kt:21:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerClientsScreen.kt:42:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerDashboardScreen.kt:101:44 'Logout: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Logout
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerDashboardScreen.kt:169:98 'List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerEarningsScreen.kt:41:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerMonetizationScreen.kt:161:25 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerMonetizationScreen.kt:232:48 'TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerMonetizationScreen.kt:558:13 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerNotificationsScreen.kt:35:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:95:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:396:56 'Label: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Label
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:709:80 'MenuBook: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.MenuBook
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerPackagesScreen.kt:714:13 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerProfileScreen.kt:168:48 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerProfileScreen.kt:398:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerReviewsScreen.kt:36:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///app/applet/app/src/main/java/com/example/ui/screens/owner/OwnerSettingsScreen.kt:26:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:dexBuilderDebug
+> Task :app:processDebugJavaRes
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 5m 8s
+40 actionable tasks: 37 executed, 2 from cache, 1 up-to-date
