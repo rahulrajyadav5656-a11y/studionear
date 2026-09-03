@@ -57,9 +57,9 @@ fun OwnerBookingsScreen(
     val filteredBookings = remember(selectedTabIndex, bookings) {
         when (selectedTabIndex) {
             0 -> bookings.filter { it.status == BookingStatus.PENDING }
-            1 -> bookings.filter { it.status == BookingStatus.ACCEPTED || it.status == BookingStatus.IN_PROGRESS }
+            1 -> bookings.filter { it.status == BookingStatus.ACCEPTED }
             2 -> bookings.filter { it.status == BookingStatus.COMPLETED }
-            3 -> bookings.filter { it.status == BookingStatus.CANCELLED || it.status == BookingStatus.REJECTED || it.status == BookingStatus.DECLINED }
+            3 -> bookings.filter { it.status == BookingStatus.CANCELLED || it.status == BookingStatus.REJECTED }
             else -> emptyList()
         }
     }
@@ -111,17 +111,18 @@ fun OwnerBookingsScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(filteredBookings) { booking ->
+                        val currentBookingId = booking.bookingId.ifEmpty { booking.id }
                         OwnerBookingCard(
                             booking = booking,
                             onAccept = {
                                 scope.launch {
-                                    ServiceLocator.bookingRepository.updateBookingStatus(booking.bookingId, BookingStatus.ACCEPTED)
+                                    ServiceLocator.bookingRepository.updateBookingStatus(currentBookingId, BookingStatus.ACCEPTED)
                                     Toast.makeText(context, "Inquiry Accepted!", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onDecline = {
                                 scope.launch {
-                                    ServiceLocator.bookingRepository.updateBookingStatus(booking.bookingId, BookingStatus.DECLINED)
+                                    ServiceLocator.bookingRepository.updateBookingStatus(currentBookingId, BookingStatus.REJECTED)
                                     Toast.makeText(context, "Inquiry Declined.", Toast.LENGTH_SHORT).show()
                                 }
                             },
