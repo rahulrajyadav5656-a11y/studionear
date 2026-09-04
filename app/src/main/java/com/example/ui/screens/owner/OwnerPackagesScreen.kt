@@ -17,62 +17,56 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.example.data.AuthManager
-import com.example.data.MockDataManager
 import com.example.data.models.Studio
 import com.example.data.models.StudioPackage
 import com.example.di.ServiceLocator
 import com.example.ui.theme.*
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OwnerPackagesScreen(onBack: () -> Unit) {
-    val ownerId = AuthManager.getCurrentUser() ?: "default_owner"
+    val ownerId = AuthManager.getCurrentUser() ?: ""
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val firestore = remember { FirebaseFirestore.getInstance() }
 
-    // Get studio
     var studio by remember {
-        mutableStateOf(
-            MockDataManager.getStudioByOwnerId(ownerId) ?: Studio(
-                id = "1",
-                ownerId = ownerId,
-                name = "Royal Shutter Studios"
-            )
-        )
+        mutableStateOf<Studio?>(null)
     }
 
     var isOperatingOnPackage by remember { mutableStateOf(false) }
     var isPackagesLoading by remember { mutableStateOf(false) }
 
-    // Sync studio and packages from Firestore on screen launch
+    // Fetch Studio details live from Firestore
     LaunchedEffect(ownerId) {
-        isPackagesLoading = true
-        try {
-            val remoteStudio = ServiceLocator.studioRepository.getStudioByOwnerId(ownerId)
-            if (remoteStudio != null) {
-                studio = remoteStudio
-                ServiceLocator.studioRepository.getPackagesForStudio(remoteStudio.id)
+        if (ownerId.isNotBlank()) {
+            isPackagesLoading = true
+            try {
+                val remoteStudio = ServiceLocator.studioRepository.getStudioByOwnerId(ownerId)
+                if (remoteStudio != null) {
+                    studio = remoteStudio
+                    ServiceLocator.studioRepository.getPackagesForStudio(remoteStudio.id)
+                }
+            } catch (_: Exception) {
+            } finally {
+                isPackagesLoading = false
             }
-        } catch (e: Exception) {
-            // fallback
-        } finally {
-            isPackagesLoading = false
         }
     }
 
-    val packagesFlow = remember(studio.id) {
-        ServiceLocator.studioRepository.observePackagesForStudio(studio.id)
+    val currentStudioId = studio?.id ?: ownerId
+    val packagesFlow = remember(currentStudioId) {
+        ServiceLocator.studioRepository.observePackagesForStudio(currentStudioId)
     }
     val studioPackages by packagesFlow.collectAsState(initial = emptyList())
 
@@ -146,7 +140,7 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
                     Text("No Packages Created Yet", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ThemeOnBackground)
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "Create photography packages to allow clients in Prayagraj to view pricing and book your services.",
+                        "Create photography packages to allow clients to calculate custom quotes and book your studio.",
                         fontSize = 13.sp,
                         color = ThemeOnSurfaceVariant,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -181,7 +175,6 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
                     }
                 }
                 item {
-                    // Summary Banner
                     Card(
                         colors = CardDefaults.cardColors(containerColor = ThemeSurface),
                         shape = RoundedCornerShape(14.dp),
@@ -207,7 +200,7 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Client-Facing Pricing", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = ThemeOnBackground)
                                 Text(
-                                    "Packages appear directly on your studio profile and booking requests.",
+                                    "Packages appear directly in client quote builder and booking requests.",
                                     fontSize = 12.sp,
                                     color = ThemeOnSurfaceVariant
                                 )
@@ -227,7 +220,15 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
                             )
                             scope.launch {
                                 ServiceLocator.studioRepository.savePackage(duplicated)
-                                snackbarHostState.showSnackbar("Package '${pkg.name}' duplicated successfully!")
+                                // Sync duplicate to Firestore rates collection for QuoteBuilder
+                                firestore.collection("studios").document(currentStudioId)
+                                    .collection("rates").document(duplicated.id)
+                                    .set(mapOf(
+                                        "name" to duplicated.name,
+                                        "description" to duplicated.deliverables,
+                                        "pricePerDay" to duplicated.price
+                                    ))
+                                snackbarHostState.showSnackbar("Package duplicated successfully!")
                             }
                         },
                         onDelete = { packageToDelete = pkg }
@@ -256,10 +257,14 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
                         scope.launch {
                             try {
                                 ServiceLocator.studioRepository.deletePackage(target.id)
+                                // Remove from Firestore rates subcollection
+                                firestore.collection("studios").document(currentStudioId)
+                                    .collection("rates").document(target.id)
+                                    .delete()
                                 packageToDelete = null
                                 snackbarHostState.showSnackbar("Package deleted successfully")
                             } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("Deleted locally: ${e.message ?: ""}")
+                                snackbarHostState.showSnackbar("Delete error: ${e.message ?: ""}")
                             } finally {
                                 isOperatingOnPackage = false
                             }
@@ -289,7 +294,7 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
     // Add / Edit Package Dialog
     if (showAddDialog || editingPackage != null) {
         PackageEditDialog(
-            studioId = studio.id,
+            studioId = currentStudioId,
             existingPkg = editingPackage,
             isSaving = isOperatingOnPackage,
             onDismiss = {
@@ -303,11 +308,19 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
                 scope.launch {
                     try {
                         ServiceLocator.studioRepository.savePackage(pkg)
+                        // Sync directly with Firestore rates subcollection for QuoteBuilderSheet
+                        firestore.collection("studios").document(currentStudioId)
+                            .collection("rates").document(pkg.id)
+                            .set(mapOf(
+                                "name" to pkg.name,
+                                "description" to pkg.deliverables,
+                                "pricePerDay" to pkg.price
+                            ))
                         showAddDialog = false
                         editingPackage = null
-                        snackbarHostState.showSnackbar("Package saved successfully")
+                        snackbarHostState.showSnackbar("Package saved and synchronized with live quote builder!")
                     } catch (e: Exception) {
-                        snackbarHostState.showSnackbar("Saved locally: ${e.message ?: ""}")
+                        snackbarHostState.showSnackbar("Save error: ${e.message ?: ""}")
                     } finally {
                         isOperatingOnPackage = false
                     }
@@ -317,7 +330,6 @@ fun OwnerPackagesScreen(onBack: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PackageEditDialog(
     studioId: String,
@@ -332,7 +344,7 @@ fun PackageEditDialog(
     var deliveryTimelineDays by remember { mutableStateOf(existingPkg?.deliveryTimelineDays?.toString() ?: "30") }
     var deliverables by remember { 
         mutableStateOf(
-            existingPkg?.deliverables ?: "300+ Edited Photos, 1 Full Length Traditional Video, 1 Cinematic Highlight Reel"
+            existingPkg?.deliverables ?: "Edited Photos, Highlight Video Coverage"
         ) 
     }
     var description by remember { mutableStateOf(existingPkg?.description ?: "") }
@@ -380,7 +392,6 @@ fun PackageEditDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
                 modifier = Modifier.verticalScroll(rememberScrollState())
             ) {
-                // Package Name
                 OutlinedTextField(
                     value = name,
                     onValueChange = { 
@@ -388,7 +399,7 @@ fun PackageEditDialog(
                         if (it.isNotBlank()) nameError = null
                     },
                     label = { Text("Package Title *") },
-                    placeholder = { Text("e.g. Silver Wedding Package, Pre-Wedding Shoot") },
+                    placeholder = { Text("e.g. Traditional Photography, Cinematic Wedding") },
                     isError = nameError != null,
                     supportingText = {
                         if (nameError != null) Text(nameError!!, color = MaterialTheme.colorScheme.error)
@@ -399,7 +410,6 @@ fun PackageEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Price and Functions row
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = price,
@@ -407,8 +417,8 @@ fun PackageEditDialog(
                             price = it
                             if (it.isNotBlank()) priceError = null
                         },
-                        label = { Text("Price (₹) *") },
-                        placeholder = { Text("45000") },
+                        label = { Text("Price Per Day (₹) *") },
+                        placeholder = { Text("15000") },
                         isError = priceError != null,
                         supportingText = {
                             if (priceError != null) Text(priceError!!, color = MaterialTheme.colorScheme.error)
@@ -433,7 +443,6 @@ fun PackageEditDialog(
                     )
                 }
 
-                // Delivery Timeline
                 OutlinedTextField(
                     value = deliveryTimelineDays,
                     onValueChange = { deliveryTimelineDays = it },
@@ -446,12 +455,11 @@ fun PackageEditDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Key Deliverables
                 OutlinedTextField(
                     value = deliverables,
                     onValueChange = { deliverables = it },
                     label = { Text("Key Deliverables *") },
-                    placeholder = { Text("e.g. 300 Edited Photos, 1 Traditional Video, 1 Cinematic Teaser, 1 Photo Album") },
+                    placeholder = { Text("e.g. 300 Edited Photos, 1 Traditional Video, 1 Teaser") },
                     leadingIcon = { Icon(Icons.Default.TaskAlt, contentDescription = null, tint = ThemePrimary) },
                     colors = customTextFieldColors(),
                     shape = RoundedCornerShape(12.dp),
@@ -459,19 +467,17 @@ fun PackageEditDialog(
                     minLines = 2
                 )
 
-                // Description
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Package Description") },
-                    placeholder = { Text("Detailed notes on rituals covered, team size, equipment, and shoot expectations...") },
+                    placeholder = { Text("Detailed description for client reference...") },
                     colors = customTextFieldColors(),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
 
-                // Included In Package Checkboxes
                 Text(
                     text = "Included Services:",
                     fontWeight = FontWeight.Bold,
@@ -495,12 +501,11 @@ fun PackageEditDialog(
                     PackageCheckboxRow("Luxury Hardcover Photo Album", includesAlbum) { includesAlbum = it }
                 }
 
-                // Terms & Notes
                 OutlinedTextField(
                     value = terms,
                     onValueChange = { terms = it },
-                    label = { Text("Payment & Cancellation Terms") },
-                    placeholder = { Text("e.g. 25% Advance booking deposit, balance on event day") },
+                    label = { Text("Payment Terms") },
+                    placeholder = { Text("25% Advance booking deposit") },
                     colors = customTextFieldColors(),
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -517,7 +522,7 @@ fun PackageEditDialog(
                     }
                     val parsedPrice = price.trim().toDoubleOrNull()
                     if (parsedPrice == null || parsedPrice <= 0) {
-                        priceError = "Enter a valid positive price"
+                        priceError = "Enter a valid price"
                         return@Button
                     }
 
@@ -612,7 +617,6 @@ fun OwnerPackageCard(
         shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            // Header: Title & Actions
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -648,7 +652,6 @@ fun OwnerPackageCard(
                     }
                 }
 
-                // Price Tag
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         text = "₹${pkg.price.toInt()}",
@@ -656,7 +659,7 @@ fun OwnerPackageCard(
                         fontWeight = FontWeight.ExtraBold,
                         color = ThemePrimary
                     )
-                    Text("Starting Price", fontSize = 10.sp, color = ThemeOnSurfaceVariant)
+                    Text("Per Day / Package", fontSize = 10.sp, color = ThemeOnSurfaceVariant)
                 }
             }
 
@@ -670,7 +673,6 @@ fun OwnerPackageCard(
                 )
             }
 
-            // Deliverables Box
             if (pkg.deliverables.isNotBlank()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Box(
@@ -696,7 +698,6 @@ fun OwnerPackageCard(
                 }
             }
 
-            // Included tags
             Spacer(modifier = Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -709,7 +710,6 @@ fun OwnerPackageCard(
                 if (pkg.includesAlbum) SmallFeatureChip("Album", Icons.Default.MenuBook)
             }
 
-            // Divider & Actions
             Spacer(modifier = Modifier.height(14.dp))
             Divider(color = ThemeOutline.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.height(8.dp))
