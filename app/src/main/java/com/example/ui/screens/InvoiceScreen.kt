@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -29,53 +30,60 @@ fun InvoiceScreen(
     var isLoading by remember { mutableStateOf(true) }
     var bookingData by remember { mutableStateOf<Map<String, Any>?>(null) }
 
-    // Fetch live booking details from Firestore
-    LaunchedEffect(bookingId) {
+    // Live real-time listener: status changes instantly when owner accepts
+    DisposableEffect(bookingId) {
+        var listener: ListenerRegistration? = null
         if (bookingId.isNotBlank()) {
             val docId = if (bookingId.startsWith("BK-")) bookingId.removePrefix("BK-") else bookingId
-            firestore.collection("bookings").document(docId).get()
-                .addOnSuccessListener { snapshot ->
-                    if (snapshot.exists()) {
+            listener = firestore.collection("bookings").document(docId)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot != null && snapshot.exists()) {
                         bookingData = snapshot.data
                         isLoading = false
                     } else {
-                        // Fallback query if stored under full bookingId
+                        // Fallback check if stored under full ID
                         firestore.collection("bookings").document(bookingId).get()
                             .addOnSuccessListener { directSnap ->
-                                bookingData = directSnap.data
+                                if (directSnap.exists()) {
+                                    bookingData = directSnap.data
+                                }
                                 isLoading = false
                             }
                             .addOnFailureListener { isLoading = false }
                     }
                 }
-                .addOnFailureListener {
-                    isLoading = false
-                }
         } else {
             isLoading = false
+        }
+
+        onDispose {
+            listener?.remove()
         }
     }
 
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
 
-    // Extract dynamic fields with fallbacks
     val studioName = bookingData?.get("studioName") as? String ?: "Studio"
     val eventDate = bookingData?.get("eventDate") as? String ?: "Date Not Set"
-    val eventType = bookingData?.get("eventType") as? String ?: (bookingData?.get("serviceTitle") as? String ?: "Photography Service")
+    val eventType = bookingData?.get("eventType") as? String 
+        ?: (bookingData?.get("serviceTitle") as? String ?: "Photography Service")
     val clientName = bookingData?.get("clientName") as? String ?: "Valued Client"
     val clientPhone = bookingData?.get("clientPhone") as? String ?: "Provided at Venue"
-    val eventLocation = bookingData?.get("eventLocation") as? String ?: "Event Venue"
+    val eventLocation = bookingData?.get("eventLocation") as? String 
+        ?: (bookingData?.get("location") as? String ?: "Event Venue")
     val status = (bookingData?.get("status") as? String ?: "PENDING").uppercase()
 
-    val totalAmount = (bookingData?.get("quotedAmount") as? Number)?.toDouble()
-        ?: (bookingData?.get("totalAmount") as? Number)?.toDouble()
+    val totalAmount = (bookingData?.get("totalAmount") as? Number)?.toDouble()
+        ?: (bookingData?.get("quotedAmount") as? Number)?.toDouble()
         ?: 0.0
 
-    val advancePaid = (bookingData?.get("advanceAmount") as? Number)?.toDouble()
-        ?: (bookingData?.get("advancePaid") as? Number)?.toDouble()
+    val advancePaid = (bookingData?.get("advancePaid") as? Number)?.toDouble()
+        ?: (bookingData?.get("advanceAmount") as? Number)?.toDouble()
         ?: 0.0
 
-    val advanceRequired = if (totalAmount > 0.0) totalAmount * 0.30 else 0.0
+    val advanceRequired = (bookingData?.get("advanceRequired") as? Number)?.toDouble()
+        ?: if (totalAmount > 0.0) totalAmount * 0.25 else 0.0
+
     val balanceDue = if (totalAmount > advancePaid) totalAmount - advancePaid else 0.0
 
     Scaffold(
@@ -115,7 +123,15 @@ fun InvoiceScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         InvoiceRow("Invoice Number", "INV-${bookingId.takeLast(6)}")
                         InvoiceRow("Booking ID", bookingId)
-                        InvoiceRow("Status", status, highlightColor = if (status == "CONFIRMED" || status == "ACCEPTED") Color(0xFF10B981) else Color(0xFFF59E0B))
+                        InvoiceRow(
+                            "Status", 
+                            status, 
+                            highlightColor = when (status) {
+                                "CONFIRMED", "ACCEPTED" -> Color(0xFF10B981)
+                                "REJECTED", "CANCELLED" -> Color(0xFFEF4444)
+                                else -> Color(0xFFF59E0B)
+                            }
+                        )
                     }
                 }
 
@@ -166,7 +182,7 @@ fun InvoiceScreen(
                         InvoiceRow("Event Date", eventDate)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = Color(0xFF2A2A38))
                         InvoiceRow("Total Quoted Amount", currencyFormat.format(totalAmount))
-                        InvoiceRow("Advance Required (30%)", currencyFormat.format(advanceRequired))
+                        InvoiceRow("Advance Required (25%)", currencyFormat.format(advanceRequired))
                         InvoiceRow("Advance Paid", currencyFormat.format(advancePaid))
                         HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = Color(0xFF2A2A38))
                         InvoiceRow("Balance Due at Venue", currencyFormat.format(balanceDue), highlightColor = Color(0xFFEF4444), isBold = true)
