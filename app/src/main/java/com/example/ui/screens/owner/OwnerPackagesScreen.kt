@@ -1,13 +1,14 @@
 package com.example.ui.screens.owner
 
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -47,14 +48,12 @@ fun OwnerPackagesScreen(
     var packagesList by remember { mutableStateOf<List<StudioPackageItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Dialog state for adding a package
     var showAddDialog by remember { mutableStateOf(false) }
     var newPkgName by remember { mutableStateOf("") }
     var newPkgPrice by remember { mutableStateOf("") }
     var newPkgDeliverables by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
 
-    // Resolve studio document ID and load packages
     LaunchedEffect(ownerId) {
         if (ownerId.isNotBlank()) {
             firestore.collection("studios").whereEqualTo("ownerId", ownerId).limit(1).get()
@@ -171,33 +170,39 @@ fun OwnerPackagesScreen(
             }
         }
 
-        // Simple Add Package Dialog
+        // Add Package Dialog with auto-clean number parser
         if (showAddDialog) {
             AlertDialog(
                 onDismissRequest = { if (!isSaving) showAddDialog = false },
                 title = { Text("Add New Package", color = Color.White, fontWeight = FontWeight.Bold) },
                 containerColor = Color(0xFF1E1E28),
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         OutlinedTextField(
                             value = newPkgName,
                             onValueChange = { newPkgName = it },
                             label = { Text("Package Name") },
-                            placeholder = { Text("e.g. Candid Photography") },
+                            placeholder = { Text("e.g. Premium Wedding Package") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
                                 focusedBorderColor = Color(0xFF8B5CF6),
                                 unfocusedBorderColor = Color(0xFF374151)
-                            )
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
 
                         OutlinedTextField(
                             value = newPkgPrice,
                             onValueChange = { newPkgPrice = it },
                             label = { Text("Price (₹)") },
-                            placeholder = { Text("e.g. 15000") },
+                            placeholder = { Text("e.g. 99999") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -205,28 +210,35 @@ fun OwnerPackagesScreen(
                                 unfocusedTextColor = Color.White,
                                 focusedBorderColor = Color(0xFF8B5CF6),
                                 unfocusedBorderColor = Color(0xFF374151)
-                            )
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
 
                         OutlinedTextField(
                             value = newPkgDeliverables,
                             onValueChange = { newPkgDeliverables = it },
                             label = { Text("Deliverables / Details") },
-                            placeholder = { Text("e.g. 300 Edited Photos + 1 Album") },
+                            placeholder = { Text("List services, albums, videos included...") },
+                            minLines = 4,
+                            maxLines = 8,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
                                 focusedBorderColor = Color(0xFF8B5CF6),
                                 unfocusedBorderColor = Color(0xFF374151)
-                            )
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 },
                 confirmButton = {
                     Button(
                         onClick = {
-                            val priceVal = newPkgPrice.toDoubleOrNull()
-                            if (newPkgName.isBlank() || priceVal == null || priceVal <= 0) {
+                            // Strip commas, spaces, currency symbols
+                            val sanitizedPrice = newPkgPrice.replace(",", "").replace("₹", "").trim()
+                            val priceVal = sanitizedPrice.toDoubleOrNull()
+
+                            if (newPkgName.isBlank() || priceVal == null || priceVal <= 0.0) {
                                 Toast.makeText(context, "Please enter valid package name and price", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
@@ -249,7 +261,7 @@ fun OwnerPackagesScreen(
                                     newPkgName = ""
                                     newPkgPrice = ""
                                     newPkgDeliverables = ""
-                                    Toast.makeText(context, "Package Added!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Package Added Successfully!", Toast.LENGTH_SHORT).show()
                                 }
                                 .addOnFailureListener { e ->
                                     isSaving = false
