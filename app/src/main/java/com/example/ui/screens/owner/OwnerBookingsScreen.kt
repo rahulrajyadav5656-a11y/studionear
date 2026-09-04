@@ -25,6 +25,7 @@ import com.example.data.models.BookingStatus
 import com.example.di.ServiceLocator
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -45,7 +46,6 @@ fun OwnerBookingsScreen(
     var bookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Live real-time listener for owner bookings from Firestore
     LaunchedEffect(ownerId) {
         if (ownerId.isNotBlank()) {
             ServiceLocator.bookingRepository.getOwnerBookings(ownerId).collect {
@@ -70,7 +70,7 @@ fun OwnerBookingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Studio Leads & Orders", fontWeight = FontWeight.Bold) },
+                title = { Text(text = "Studio Leads & Orders", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -93,7 +93,7 @@ fun OwnerBookingsScreen(
                     Tab(
                         selected = selectedTabIndex == index,
                         onClick = { selectedTabIndex = index },
-                        text = { Text(title, fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal) }
+                        text = { Text(text = title, fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal) }
                     )
                 }
             }
@@ -104,7 +104,7 @@ fun OwnerBookingsScreen(
                 }
             } else if (filteredBookings.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No inquiries in this category.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(text = "No inquiries in this category.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(
@@ -120,13 +120,11 @@ fun OwnerBookingsScreen(
                             onCardClick = { onNavigateToBooking(currentBookingId) },
                             onAccept = {
                                 scope.launch {
-                                    // 1. Update Booking Status
                                     ServiceLocator.bookingRepository.updateBookingStatus(currentBookingId, BookingStatus.ACCEPTED)
-                                    
-                                    // 2. Trigger Real Notification Document for Client (FCM Trigger Queue)
+
                                     val notificationData = mapOf(
                                         "recipientId" to booking.clientId,
-                                        "title" to "Booking Confirmed! 🎉",
+                                        "title" to "Booking Confirmed!",
                                         "body" to "Studio has accepted your inquiry for ${booking.eventType.ifEmpty { "your event" }}.",
                                         "bookingId" to currentBookingId,
                                         "timestamp" to System.currentTimeMillis(),
@@ -167,8 +165,34 @@ private fun OwnerBookingCard(
     onDecline: () -> Unit,
     onCallClient: (String) -> Unit
 ) {
-    val clientName = booking.clientName.ifBlank { "Client" }
-    val clientPhone = booking.clientPhone
+    var clientName by remember { mutableStateOf("Client") }
+    var clientPhone by remember { mutableStateOf("") }
+
+    LaunchedEffect(booking.clientId, booking.id) {
+        // First check Firestore users collection
+        if (booking.clientId.isNotBlank()) {
+            try {
+                val doc = ServiceLocator.firestore.collection("users").document(booking.clientId).get().await()
+                val name = doc.getString("fullName") ?: doc.getString("name")
+                val phone = doc.getString("phoneNumber") ?: doc.getString("phone")
+                if (!name.isNullOrBlank()) clientName = name
+                if (!phone.isNullOrBlank()) clientPhone = phone
+            } catch (_: Exception) {}
+        }
+        // If still empty, check booking document directly
+        if (clientPhone.isBlank()) {
+            val bookingDocId = booking.bookingId.ifEmpty { booking.id }
+            if (bookingDocId.isNotBlank()) {
+                try {
+                    val bDoc = ServiceLocator.firestore.collection("bookings").document(bookingDocId).get().await()
+                    val bName = bDoc.getString("clientName")
+                    val bPhone = bDoc.getString("clientPhone")
+                    if (!bName.isNullOrBlank()) clientName = bName
+                    if (!bPhone.isNullOrBlank()) clientPhone = bPhone
+                } catch (_: Exception) {}
+            }
+        }
+    }
 
     val eventDateStr = if (booking.eventDate > 0L) {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(booking.eventDate))
@@ -208,10 +232,10 @@ private fun OwnerBookingCard(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
-            Text("Service: ${booking.eventType.ifEmpty { "Event Coverage" }}", style = MaterialTheme.typography.bodyMedium)
-            Text("Event Date: $eventDateStr", style = MaterialTheme.typography.bodyMedium)
-            Text("Location: ${booking.location.ifEmpty { "Venue" }}", style = MaterialTheme.typography.bodyMedium)
-            Text("Quoted Amount: ₹${booking.totalAmount.toInt()}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(text = "Service: " + booking.eventType.ifEmpty { "Event Coverage" }, style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Event Date: $eventDateStr", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Location: " + booking.location.ifEmpty { "Venue" }, style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Quoted Amount: ₹" + booking.totalAmount.toInt().toString(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
@@ -227,7 +251,7 @@ private fun OwnerBookingCard(
                 ) {
                     Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Call Client", fontSize = 13.sp)
+                    Text(text = "Call Client", fontSize = 13.sp)
                 }
 
                 if (booking.status == BookingStatus.PENDING) {
@@ -236,13 +260,13 @@ private fun OwnerBookingCard(
                             onClick = onDecline,
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Decline", fontSize = 13.sp)
+                            Text(text = "Decline", fontSize = 13.sp)
                         }
                         Button(
                             onClick = onAccept,
                             shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Accept", fontSize = 13.sp)
+                            Text(text = "Accept", fontSize = 13.sp)
                         }
                     }
                 }
