@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,23 +32,41 @@ fun QuoteBuilderSheet(
 ) {
     val firestore = remember { FirebaseFirestore.getInstance() }
     var isSubmitting by remember { mutableStateOf(false) }
+    var isLoadingRates by remember { mutableStateOf(true) }
 
-    // Owner services rates state
-    var services by remember {
-        mutableStateOf(
-            listOf(
-                ServiceRate("1", "Traditional Photography", "Standard stage & family coverage", 8000.0, true),
-                ServiceRate("2", "Candid Photography", "Creative portrait & emotional candid shots", 14000.0, false),
-                ServiceRate("3", "Cinematic Teaser & Video", "High-end cinematic video with gimbal", 18000.0, false),
-                ServiceRate("4", "Drone Aerial Coverage", "4K Drone aerial shots per day", 9000.0, false)
-            )
-        )
-    }
+    // Live Owner services rates from Firestore
+    var services by remember { mutableStateOf<List<ServiceRate>>(emptyList()) }
 
     var numberOfDays by remember { mutableIntStateOf(1) }
     var clientName by remember { mutableStateOf("") }
     var clientPhone by remember { mutableStateOf("") }
     var eventDate by remember { mutableStateOf("") }
+
+    // Fetch real studio rates from Firestore
+    LaunchedEffect(studioId) {
+        isLoadingRates = true
+        firestore.collection("studios").document(studioId).collection("rates")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val fetched = snapshot.documents.mapNotNull { doc ->
+                    val name = doc.getString("name") ?: return@mapNotNull null
+                    val desc = doc.getString("description") ?: ""
+                    val price = doc.getDouble("pricePerDay") ?: 0.0
+                    ServiceRate(
+                        id = doc.id,
+                        name = name,
+                        description = desc,
+                        pricePerDay = price,
+                        isSelected = false
+                    )
+                }
+                services = fetched
+                isLoadingRates = false
+            }
+            .addOnFailureListener {
+                isLoadingRates = false
+            }
+    }
 
     // Realtime Calculations
     val selectedServices = services.filter { it.isSelected }
@@ -93,47 +110,79 @@ fun QuoteBuilderSheet(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // Services Checkboxes
-            items(services) { service ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                        .clickable {
-                            services = services.map {
-                                if (it.id == service.id) it.copy(isSelected = !it.isSelected) else it
-                            }
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (service.isSelected) Color(0xFF2E244D) else Color(0xFF262635)
-                    )
-                ) {
-                    Row(
+            if (isLoadingRates) {
+                item {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(service.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text(service.description, color = Color.Gray, fontSize = 11.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("₹${service.pricePerDay.toInt()}/day", color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                        Checkbox(
-                            checked = service.isSelected,
-                            onCheckedChange = { checked ->
+                        CircularProgressIndicator(color = Color(0xFF8B5CF6))
+                    }
+                }
+            } else if (services.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF262635))
+                    ) {
+                        Text(
+                            text = "No custom services listed by this studio yet. Please contact the studio directly.",
+                            color = Color.Gray,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            } else {
+                // Services Checkboxes
+                items(services) { service ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clickable {
                                 services = services.map {
-                                    if (it.id == service.id) it.copy(isSelected = checked) else it
+                                    if (it.id == service.id) it.copy(isSelected = !it.isSelected) else it
                                 }
                             },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF8B5CF6),
-                                checkmarkColor = Color.White
-                            )
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (service.isSelected) Color(0xFF2E244D) else Color(0xFF262635)
                         )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(service.name, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                if (service.description.isNotBlank()) {
+                                    Text(service.description, color = Color.Gray, fontSize = 11.sp)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("₹${service.pricePerDay.toInt()}/day", color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                            Checkbox(
+                                checked = service.isSelected,
+                                onCheckedChange = { checked ->
+                                    services = services.map {
+                                        if (it.id == service.id) it.copy(isSelected = checked) else it
+                                    }
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = Color(0xFF8B5CF6),
+                                    checkmarkColor = Color.White
+                                )
+                            )
+                        }
                     }
                 }
             }
