@@ -13,7 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -100,8 +99,8 @@ fun StudioOwnerMainScreen(
             }
             composable(OwnerBottomNavItem.Profile.route) {
                 OwnerProfileScreen(
-                    onNavigate = { route -> navController.navigate(route) },
-                    onBack = { if (navController.previousBackStackEntry != null) navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onNavigateToPackages = { navController.navigate("owner_packages") }
                 )
             }
             // Sub-screens
@@ -109,7 +108,10 @@ fun StudioOwnerMainScreen(
                 OwnerMonetizationScreen(onBack = { navController.popBackStack() })
             }
             composable("owner_packages") {
-                OwnerPackagesScreen(onBack = { navController.popBackStack() })
+                OwnerPackagesScreen(
+                    onBack = { navController.popBackStack() },
+                    onNavigate = { route -> navController.navigate(route) }
+                )
             }
             composable("owner_reviews") {
                 OwnerReviewsScreen(onBack = { navController.popBackStack() })
