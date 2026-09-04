@@ -1,10 +1,13 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,15 +36,17 @@ data class HomeStudioData(
     val id: String = "",
     val name: String = "",
     val city: String = "",
-    val area: String = "",
+    val address: String = "",
+    val phone: String = "",
     val rating: Double = 5.0,
     val reviewCount: Int = 0,
     val startingPrice: Double = 0.0,
-    val isSponsored: Boolean = false,
-    val isVerified: Boolean = false,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val specialties: List<String> = emptyList()
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onStudioClick: (String) -> Unit = {},
@@ -56,60 +61,65 @@ fun HomeScreen(
     var selectedCity by remember { mutableStateOf("Prayagraj") }
     var showLocationSheet by remember { mutableStateOf(false) }
 
+    // Search & Filter state
+    var searchQuery by remember { mutableStateOf("") }
     var selectedFilterCategory by remember { mutableStateOf<String?>(null) }
     var studioList by remember { mutableStateOf<List<HomeStudioData>>(emptyList()) }
     var isLoadingStudios by remember { mutableStateOf(true) }
 
-    LaunchedEffect(selectedCity, selectedFilterCategory) {
+    // Live sync studios from Firestore
+    LaunchedEffect(Unit) {
         isLoadingStudios = true
         firestore.collection("studios")
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val fetched = snapshot.documents.mapNotNull { doc ->
-                    val name = doc.getString("name") ?: return@mapNotNull null
-                    val city = doc.getString("city") ?: ""
-                    val area = doc.getString("area") ?: ""
-                    val rating = doc.getDouble("rating") ?: 5.0
-                    val reviewCount = doc.getLong("reviewCount")?.toInt() ?: 0
-                    val startingPrice = doc.getDouble("startingPrice") ?: 0.0
-                    val isSponsored = doc.getBoolean("isSponsored") ?: false
-                    val isVerified = doc.getBoolean("isVerified") ?: false
-                    val rawSpecialties = doc.get("specialties") as? List<*>
-                    val specialties = rawSpecialties?.mapNotNull { it?.toString() } ?: emptyList()
+            .addSnapshotListener { snapshot, error ->
+                if (snapshot != null) {
+                    val fetched = snapshot.documents.mapNotNull { doc ->
+                        val name = doc.getString("name") ?: return@mapNotNull null
+                        val city = doc.getString("city") ?: ""
+                        val address = doc.getString("address") ?: doc.getString("area") ?: ""
+                        val phone = doc.getString("phone") ?: ""
+                        val rating = doc.getDouble("rating") ?: 4.9
+                        val reviewCount = doc.getLong("reviewCount")?.toInt() ?: 12
+                        val startingPrice = doc.getDouble("startingPrice") ?: doc.getDouble("price") ?: 15000.0
+                        val lat = doc.getDouble("latitude") ?: 0.0
+                        val lng = doc.getDouble("longitude") ?: 0.0
+                        val rawSpecialties = doc.get("specialties") as? List<*>
+                        val specialties = rawSpecialties?.mapNotNull { it?.toString() } ?: listOf("Wedding", "Candid", "Cinematic")
 
-                    HomeStudioData(
-                        id = doc.id,
-                        name = name,
-                        city = city,
-                        area = area,
-                        rating = rating,
-                        reviewCount = reviewCount,
-                        startingPrice = startingPrice,
-                        isSponsored = isSponsored,
-                        isVerified = isVerified,
-                        specialties = specialties
-                    )
-                }
-
-                val filtered = if (selectedFilterCategory != null) {
-                    fetched.filter { item ->
-                        item.specialties.any { it.contains(selectedFilterCategory!!, ignoreCase = true) }
+                        HomeStudioData(
+                            id = doc.id,
+                            name = name,
+                            city = city,
+                            address = address,
+                            phone = phone,
+                            rating = rating,
+                            reviewCount = reviewCount,
+                            startingPrice = startingPrice,
+                            latitude = lat,
+                            longitude = lng,
+                            specialties = specialties
+                        )
                     }
-                } else {
-                    fetched
+                    studioList = fetched
                 }
+                isLoadingStudios = false
+            }
+    }
 
-                studioList = filtered.sortedWith(
-                    compareByDescending<HomeStudioData> { it.isSponsored }
-                        .thenByDescending { it.isVerified }
-                        .thenByDescending { it.rating }
-                        .thenByDescending { it.reviewCount }
-                )
-                isLoadingStudios = false
-            }
-            .addOnFailureListener {
-                isLoadingStudios = false
-            }
+    // Filter by search query or style
+    val displayedStudios = remember(studioList, searchQuery, selectedFilterCategory) {
+        studioList.filter { studio ->
+            val matchesQuery = searchQuery.isBlank() ||
+                    studio.name.contains(searchQuery, ignoreCase = true) ||
+                    studio.address.contains(searchQuery, ignoreCase = true) ||
+                    studio.city.contains(searchQuery, ignoreCase = true)
+
+            val matchesCategory = selectedFilterCategory == null ||
+                    studio.specialties.any { it.contains(selectedFilterCategory!!, ignoreCase = true) } ||
+                    studio.name.contains(selectedFilterCategory!!, ignoreCase = true)
+
+            matchesQuery && matchesCategory
+        }
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -126,27 +136,6 @@ fun HomeScreen(
         }
     }
 
-    val requestGpsLocation = {
-        val fineGranted = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (fineGranted) {
-            coroutineScope.launch {
-                val loc = LocationHelper.fetchCurrentLocationName(context)
-                selectedArea = loc.first
-                selectedCity = loc.second
-            }
-        } else {
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
-    }
-
     Scaffold(
         containerColor = Color(0xFF0F0F14)
     ) { padding ->
@@ -154,11 +143,13 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
+                // Location & Notification Bar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -178,11 +169,10 @@ fun HomeScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "CURRENT LOCATION",
+                                text = "LOCATION",
                                 color = Color(0xFF8B5CF6),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
+                                fontWeight = FontWeight.Bold
                             )
                         }
                         Spacer(modifier = Modifier.height(2.dp))
@@ -217,62 +207,42 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text(
-                            text = "Capture Your Perfect Moments",
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Find trusted wedding photographers & cinematic studios near you",
-                            color = Color(0xFF9CA3AF),
-                            fontSize = 13.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { selectedFilterCategory = null },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Explore All Studios", fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
+                // Real Working Search Bar
                 OutlinedTextField(
-                    value = "",
-                    onValueChange = {},
-                    placeholder = { Text("Search studios, area or service...", color = Color.Gray, fontSize = 14.sp) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Studio ya area ka naam likhein...", color = Color.Gray, fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF8B5CF6)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotBlank()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
+                            }
+                        }
+                    },
                     singleLine = true,
-                    enabled = false,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        disabledBorderColor = Color(0xFF2E2E3E),
-                        disabledContainerColor = Color(0xFF171720)
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color(0xFF171720),
+                        unfocusedContainerColor = Color(0xFF171720),
+                        focusedBorderColor = Color(0xFF8B5CF6),
+                        unfocusedBorderColor = Color(0xFF2E2E3E)
                     )
                 )
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
+                // Easy Categories
                 Text(
-                    text = "SERVICES & STYLES",
+                    text = "WEDDING SERVICES",
                     color = Color(0xFF8B5CF6),
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(10.dp))
 
@@ -285,7 +255,7 @@ fun HomeScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     categories.forEach { cat ->
                         val isSelected = selectedFilterCategory.equals(cat.first, ignoreCase = true)
@@ -300,17 +270,23 @@ fun HomeScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(if (isSelected) Color(0xFF8B5CF6) else cat.third),
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) Color(0xFF8B5CF6) else Color(0xFF1E1E28))
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) Color(0xFF8B5CF6) else Color(0xFF2A2A38),
+                                        RoundedCornerShape(12.dp)
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(cat.second, contentDescription = cat.first, tint = Color.White, modifier = Modifier.size(26.dp))
+                                Icon(cat.second, contentDescription = cat.first, tint = Color.White, modifier = Modifier.size(22.dp))
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = cat.first.uppercase(),
-                                color = if (isSelected) Color.White else Color(0xFFD1D5DB),
+                                text = cat.first,
+                                color = if (isSelected) Color.White else Color(0xFF9CA3AF),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -318,36 +294,31 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Text(
-                            text = if (selectedFilterCategory != null) "${selectedFilterCategory} Studios" else "Top Studios in $selectedCity",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${studioList.size} studios available",
-                            color = Color.Gray,
-                            fontSize = 12.sp
-                        )
-                    }
-                    if (selectedFilterCategory != null) {
-                        TextButton(onClick = { selectedFilterCategory = null }) {
-                            Text("Clear Filter", color = Color(0xFF8B5CF6))
-                        }
-                    }
+                    Text(
+                        text = if (selectedFilterCategory != null) "${selectedFilterCategory} Studios" else "Verified Studios",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "${displayedStudios.size} Studios",
+                        color = Color(0xFF10B981),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
+            // Studio Cards
             if (isLoadingStudios) {
                 item {
                     Box(
@@ -359,150 +330,126 @@ fun HomeScreen(
                         CircularProgressIndicator(color = Color(0xFF8B5CF6))
                     }
                 }
-            } else if (studioList.isEmpty()) {
+            } else if (displayedStudios.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 20.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                            .padding(vertical = 16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28)),
+                        shape = RoundedCornerShape(14.dp)
                     ) {
                         Column(
                             modifier = Modifier.padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
+                            Icon(Icons.Default.Storefront, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(40.dp))
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("No studios registered yet in this area", color = Color.White, fontWeight = FontWeight.Medium)
-                            Text("New studio owners will appear here automatically.", color = Color.Gray, fontSize = 12.sp)
+                            Text("Koi studio nahi mila", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Search clear karein ya dusra ilaaqa chunein.", color = Color.Gray, fontSize = 12.sp)
                         }
                     }
                 }
             } else {
-                items(studioList) { studioItem ->
+                items(displayedStudios, key = { it.id }) { studio ->
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .clickable { onStudioClick(studioItem.id) },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E28))
+                            .padding(vertical = 7.dp)
+                            .clickable { onStudioClick(studio.id) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A24)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A38))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = studioItem.name,
-                                        color = Color.White,
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    if (studioItem.isVerified) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Icon(
-                                            imageVector = Icons.Default.CheckCircle,
-                                            contentDescription = "Verified Studio",
-                                            tint = Color(0xFF3B82F6),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
+                                Text(
+                                    text = studio.name,
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
 
-                                if (studioItem.isSponsored) {
-                                    Surface(
-                                        color = Color(0xFFF59E0B).copy(alpha = 0.2f),
-                                        shape = RoundedCornerShape(6.dp)
-                                    ) {
-                                        Text(
-                                            text = "SPONSORED",
-                                            color = Color(0xFFF59E0B),
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
+                                Surface(
+                                    color = Color(0xFF10B981).copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        text = "★ ${studio.rating}",
+                                        color = Color(0xFF10B981),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "${studioItem.area}, ${studioItem.city}",
-                                color = Color(0xFF9CA3AF),
-                                fontSize = 13.sp
-                            )
-
-                            if (studioItem.specialties.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    studioItem.specialties.take(3).forEach { tag ->
-                                        Surface(
-                                            color = Color(0xFF2A2A3A),
-                                            shape = RoundedCornerShape(8.dp)
-                                        ) {
-                                            Text(
-                                                text = tag,
-                                                color = Color(0xFFD1D5DB),
-                                                fontSize = 11.sp,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                            )
-                                        }
-                                    }
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF9CA3AF), modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (studio.address.isNotBlank()) studio.address else studio.city.ifBlank { "Prayagraj" },
+                                    color = Color(0xFF9CA3AF),
+                                    fontSize = 12.sp,
+                                    maxLines = 1
+                                )
                             }
 
-                            Spacer(modifier = Modifier.height(10.dp))
-                            HorizontalDivider(color = Color(0xFF2E2E3E), thickness = 0.8.dp)
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
+                            // Bottom actions: Rates + WhatsApp + Call
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = "Rating",
-                                        tint = Color(0xFFFBBF24),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "${studioItem.rating}",
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = " (${studioItem.reviewCount} shoots)",
-                                        color = Color.Gray,
-                                        fontSize = 12.sp
-                                    )
+                                Button(
+                                    onClick = { onStudioClick(studio.id) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Rates & Book Karein", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
 
-                                if (studioItem.startingPrice > 0) {
-                                    Text(
-                                        text = "Starts ₹${studioItem.startingPrice.toInt()}",
-                                        color = Color(0xFF10B981),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (studio.phone.isNotBlank()) {
+                                        IconButton(
+                                            onClick = {
+                                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${studio.phone}"))
+                                                context.startActivity(intent)
+                                            },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Color(0xFF242436), RoundedCornerShape(8.dp))
+                                        ) {
+                                            Icon(Icons.Default.Phone, contentDescription = "Call", tint = Color(0xFF8B5CF6), modifier = Modifier.size(18.dp))
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                val cleanPhone = studio.phone.replace("+", "").replace(" ", "").trim()
+                                                val uri = Uri.parse("https://api.whatsapp.com/send?phone=91$cleanPhone&text=Namaste! Mujhe aapke studio se wedding photography ki enquiry karni hai.")
+                                                val intent = Intent(Intent.ACTION_VIEW, uri)
+                                                context.startActivity(intent)
+                                            },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Color(0xFF10B981).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        ) {
+                                            Icon(Icons.Default.Chat, contentDescription = "WhatsApp", tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(20.dp))
             }
         }
     }
@@ -512,7 +459,9 @@ fun HomeScreen(
             onDismiss = { showLocationSheet = false },
             onUseCurrentLocation = {
                 showLocationSheet = false
-                requestGpsLocation()
+                locationPermissionLauncher.launch(
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                )
             },
             onLocationSelected = { area, city ->
                 selectedArea = area
