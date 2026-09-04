@@ -20,34 +20,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.AuthManager
-import com.example.di.ServiceLocator
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OwnerDashboardScreen(
-    onNavigateToProfile: () -> Unit = {},
-    onNavigateToPackages: () -> Unit = {},
-    onNavigateToReviews: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
-    onLogout: () -> Unit = {}
+    onNavigate: (String) -> Unit = {},
+    onLogoutClick: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = { onNavigate("owner_profile") },
+    onNavigateToPackages: () -> Unit = { onNavigate("owner_packages") },
+    onNavigateToReviews: () -> Unit = { onNavigate("owner_reviews") },
+    onNavigateToNotifications: () -> Unit = { onNavigate("owner_notifications") },
+    onNavigateToSettings: () -> Unit = { onNavigate("owner_settings") }
 ) {
     val ownerId = AuthManager.getCurrentUser() ?: ""
     val firestore = remember { FirebaseFirestore.getInstance() }
 
     var studioName by remember { mutableStateOf("My Studio") }
-    var studioLocation by remember { mutableStateOf("Prayagraj") }
+    var studioLocation by remember { mutableStateOf("Civil Lines, Prayagraj") }
     var pendingBookingsCount by remember { mutableIntStateOf(0) }
     var upcomingBookingsCount by remember { mutableIntStateOf(0) }
     var totalReviewsCount by remember { mutableIntStateOf(0) }
     var packagesCount by remember { mutableIntStateOf(0) }
 
-    // Fetch studio info & summary live from Firestore
     LaunchedEffect(ownerId) {
         if (ownerId.isNotBlank()) {
-            // Get Studio Details
             firestore.collection("studios").whereEqualTo("ownerId", ownerId).limit(1).get()
                 .addOnSuccessListener { snap ->
                     val doc = snap.documents.firstOrNull()
@@ -56,21 +53,14 @@ fun OwnerDashboardScreen(
                         studioLocation = doc.getString("city") ?: doc.getString("address") ?: "Civil Lines, Prayagraj"
                         val currentStudioId = doc.id
 
-                        // Count packages
                         firestore.collection("studios").document(currentStudioId).collection("packages").get()
-                            .addOnSuccessListener { pSnap ->
-                                packagesCount = pSnap.size()
-                            }
+                            .addOnSuccessListener { pSnap -> packagesCount = pSnap.size() }
 
-                        // Count reviews
                         firestore.collection("studios").document(currentStudioId).collection("reviews").get()
-                            .addOnSuccessListener { rSnap ->
-                                totalReviewsCount = rSnap.size()
-                            }
+                            .addOnSuccessListener { rSnap -> totalReviewsCount = rSnap.size() }
                     }
                 }
 
-            // Count Bookings
             firestore.collection("bookings")
                 .whereEqualTo("studioId", ownerId)
                 .get()
@@ -98,7 +88,7 @@ fun OwnerDashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onLogout) {
+                    IconButton(onClick = onLogoutClick) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout", tint = Color(0xFFEF4444))
                     }
                 },
@@ -116,7 +106,6 @@ fun OwnerDashboardScreen(
         ) {
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Studio Quick Stats (Sirf Zaroori Cheezein)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatSimpleBox("Pending", pendingBookingsCount.toString(), Color(0xFFF59E0B), Modifier.weight(1f))
                 StatSimpleBox("Upcoming", upcomingBookingsCount.toString(), Color(0xFF10B981), Modifier.weight(1f))
@@ -127,7 +116,6 @@ fun OwnerDashboardScreen(
             Text("MANAGEMENT", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF8B5CF6))
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 1. Studio Profile
             OwnerSimpleMenuItem(
                 title = "Studio Profile",
                 subtitle = "Manage studio name, contact & location",
@@ -135,7 +123,6 @@ fun OwnerDashboardScreen(
                 onClick = onNavigateToProfile
             )
 
-            // 2. Packages & Pricing
             OwnerSimpleMenuItem(
                 title = "Packages & Pricing",
                 subtitle = if (packagesCount > 0) "$packagesCount active packages" else "Add rates & deliverables",
@@ -144,7 +131,6 @@ fun OwnerDashboardScreen(
                 onClick = onNavigateToPackages
             )
 
-            // 3. Client Reviews
             OwnerSimpleMenuItem(
                 title = "Client Reviews",
                 subtitle = "Read customer feedback & ratings",
@@ -153,7 +139,6 @@ fun OwnerDashboardScreen(
                 onClick = onNavigateToReviews
             )
 
-            // 4. Notifications
             OwnerSimpleMenuItem(
                 title = "Notifications",
                 subtitle = "New inquiry & booking alerts",
@@ -161,7 +146,6 @@ fun OwnerDashboardScreen(
                 onClick = onNavigateToNotifications
             )
 
-            // 5. Settings
             OwnerSimpleMenuItem(
                 title = "Settings",
                 subtitle = "App preferences & account",
