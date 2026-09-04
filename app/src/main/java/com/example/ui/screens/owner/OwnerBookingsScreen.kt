@@ -23,8 +23,8 @@ import androidx.compose.ui.unit.sp
 import com.example.data.models.Booking
 import com.example.data.models.BookingStatus
 import com.example.di.ServiceLocator
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -37,6 +37,7 @@ fun OwnerBookingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val firestore = remember { FirebaseFirestore.getInstance() }
     val ownerId = ServiceLocator.auth.currentUser?.uid ?: ""
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -44,6 +45,7 @@ fun OwnerBookingsScreen(
     var bookings by remember { mutableStateOf<List<Booking>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
+    // Live real-time listener for owner bookings from Firestore
     LaunchedEffect(ownerId) {
         if (ownerId.isNotBlank()) {
             ServiceLocator.bookingRepository.getOwnerBookings(ownerId).collect {
@@ -118,8 +120,21 @@ fun OwnerBookingsScreen(
                             onCardClick = { onNavigateToBooking(currentBookingId) },
                             onAccept = {
                                 scope.launch {
+                                    // 1. Update Booking Status
                                     ServiceLocator.bookingRepository.updateBookingStatus(currentBookingId, BookingStatus.ACCEPTED)
-                                    Toast.makeText(context, "Inquiry Accepted!", Toast.LENGTH_SHORT).show()
+                                    
+                                    // 2. Trigger Real Notification Document for Client (FCM Trigger Queue)
+                                    val notificationData = mapOf(
+                                        "recipientId" to booking.clientId,
+                                        "title" to "Booking Confirmed! 🎉",
+                                        "body" to "Studio has accepted your inquiry for ${booking.eventType.ifEmpty { "your event" }}.",
+                                        "bookingId" to currentBookingId,
+                                        "timestamp" to System.currentTimeMillis(),
+                                        "status" to "PENDING_DELIVERY"
+                                    )
+                                    firestore.collection("notifications").add(notificationData)
+
+                                    Toast.makeText(context, "Inquiry Accepted & Notification Sent!", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onDecline = {
@@ -152,20 +167,8 @@ private fun OwnerBookingCard(
     onDecline: () -> Unit,
     onCallClient: (String) -> Unit
 ) {
-    var clientName by remember { mutableStateOf("Client") }
-    var clientPhone by remember { mutableStateOf("") }
-
-    LaunchedEffect(booking.clientId) {
-        if (booking.clientId.isNotBlank()) {
-            try {
-                val doc = ServiceLocator.firestore.collection("users").document(booking.clientId).get().await()
-                clientName = doc.getString("fullName") ?: doc.getString("name") ?: "Client"
-                clientPhone = doc.getString("phoneNumber") ?: doc.getString("phone") ?: ""
-            } catch (e: Exception) {
-                // Fallback
-            }
-        }
-    }
+    val clientName = booking.clientName.ifBlank { "Client" }
+    val clientPhone = booking.clientPhone
 
     val eventDateStr = if (booking.eventDate > 0L) {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(booking.eventDate))
